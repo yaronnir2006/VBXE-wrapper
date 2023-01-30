@@ -21,6 +21,9 @@
     jsr setup_vbxe_palette
     jsr setup_vbxe_sprite_data
 
+    jsr vbxe.setup_vbxe_sprite_draw_bcb 
+    jsr vbxe.start_blitter 
+    
     enable_xdl #1 ; disable
 
     

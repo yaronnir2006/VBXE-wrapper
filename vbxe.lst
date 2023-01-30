@@ -7,24 +7,35 @@ Source: C:\CC65\Projects\VBXE\VBXE wrapper\main.asm
      5 				.proc main
      6
      7 				    ; turn off ANTIC DMA
-     8 FFFF> 2000-2661> A9 00 +     mva #$00 DMACTL
+     8 FFFF> 2000-2673> A9 00 +     mva #$00 DMACTL
      9
     10 				    ; disable OS
-    11 2005 20 36 26		    jsr disable_os
+    11 2005 20 48 26		    jsr disable_os
     12
     13 				    ; init VBXE
-    14 2008 20 15 20		    jsr vbxe.initialize
+    14 2008 20 21 20		    jsr vbxe.initialize
     15 				    
     16 200B			main_loop
-    17 200B 20 6A 21		    jsr vbxe.setup_vbxe_sprite_draw_bcb 
-    18 200E 20 F7 20		    jsr vbxe.start_blitter 
-    19
-    20 2011 4C 0B 20		    jmp main_loop
-    21
-    22 2014 60			    rts 
-    23 				.endp ; main
-    24
-    25 2015			    icl 'sys_defs.h'
+    17 200B 20 3B 26		    jsr wait_for_default_vblank
+    18
+    19 				    ; screen address is $BC40 (for default display list)
+    20 200E A2 03		    ldx #3
+    21 2010			loop_text
+    22 2010 BD 1D 20		    lda text,x 
+    23 2013 9D FF BC		    sta $BCFF,x 
+    24 2016 CA			    dex 
+    25 2017 10 F7		    bpl loop_text
+    26
+    27
+    28 2019 4C 0B 20		    jmp main_loop
+    29
+    30 201C 60			    rts 
+    31 				.endp ; main
+    32
+    33 201D			text 
+    34 201D 76 62 78 65		    dta 'v','b','x','e'
+    35
+    36 2021			    icl 'sys_defs.h'
 Source: C:\CC65\Projects\VBXE\VBXE wrapper\sys_defs.h
      1 				;##################################################
      2 				; sys_defs.h 
@@ -106,460 +117,463 @@ Source: C:\CC65\Projects\VBXE\VBXE wrapper\sys_defs.h
     78 = D500			BANK_BASE       equ $D500
     79
     80
-    26 2015			    icl 'vbxe.asm'
+    37 2021			    icl 'vbxe.asm'
 Source: C:\CC65\Projects\VBXE\VBXE wrapper\vbxe.asm
      1 				;*********************************************************
      2 				; VBXE.asm
      3 				;*********************************************************
      4
      5 				; VBXE namespace
-     6 2015			.proc vbxe  
+     6 2021			.proc vbxe  
      7
      8 				;*********************************************************
      9 				; proc name:  initialize
     10 				; purpose:    initializes VBXE, call this method first
     11 				;*********************************************************
-    12 2015			.proc initialize
-    13 2015 20 35 20		    jsr check_vbxe  
+    12 2021			.proc initialize
+    13 2021 20 47 20		    jsr check_vbxe  
     14
     15 				    enable_xdl #0 ; disabled
     15 				 LDX# 0\ JSR VBXE.ENABLE_XDL
-    15 2018 A2 00		 LDX# 0
-    15 201A 20 F1 20		 JSR VBXE.ENABLE_XDL
+    15 2024 A2 00		 LDX# 0
+    15 2026 20 03 21		 JSR VBXE.ENABLE_XDL
     16
-    17 201D 20 5F 20		    jsr setup_vbxe_memac
-    18 2020 20 66 20		    jsr setup_vbxe_xdl
-    19 2023 20 52 21		    jsr setup_vbxe_clear_screen_bcb
-    20 2026 20 F7 20		    jsr start_blitter    
-    21 2029 20 91 20		    jsr setup_vbxe_palette
-    22 202C 20 B8 20		    jsr setup_vbxe_sprite_data
+    17 2029 20 71 20		    jsr setup_vbxe_memac
+    18 202C 20 78 20		    jsr setup_vbxe_xdl
+    19 202F 20 64 21		    jsr setup_vbxe_clear_screen_bcb
+    20 2032 20 09 21		    jsr start_blitter    
+    21 2035 20 A3 20		    jsr setup_vbxe_palette
+    22 2038 20 CA 20		    jsr setup_vbxe_sprite_data
     23
-    24 				    enable_xdl #1 ; disable
-    24 				 LDX# 1\ JSR VBXE.ENABLE_XDL
-    24 202F A2 01		 LDX# 1
-    24 2031 20 F1 20		 JSR VBXE.ENABLE_XDL
-    25
+    24 203B 20 7C 21		    jsr vbxe.setup_vbxe_sprite_draw_bcb 
+    25 203E 20 09 21		    jsr vbxe.start_blitter 
     26 				    
-    27 2034 60			    rts 
-    28 				.endp ;initialize
-    29
-    30 				;*********************************************************
-    31 				; proc name:  check_vbxe
-    32 				; purpose:    as VBXE board has few versions, we need to 
-    33 				;             check if locations $D600 or $D700 are used
-    34 				;             if not --> vbxe is not installed 
-    35 				;*********************************************************
-    36 2035			.proc check_vbxe 
-    37 				    ; set $D600 into base address ZP variable 
-    38 2035 A9 00 85 A0 A9 D6 +     mwa #VBXE_D600 VBXE_BASE_ADDR
-    39 203D 20 4E 20		    jsr detect_vbxe 
-    40 2040 F0 0B		    beq exit_check
-    41 				    ; if $D600 was not recognized, check $D700
-    42 2042 E6 A1		    inc VBXE_BASE_ADDR+1
-    43 2044 20 4E 20		    jsr detect_vbxe 
-    44 2047 F0 04		    beq exit_check 
-    45 				    ; no VBXE installed --> set to 0 
-    46 2049 A9 00 85 A0		    mva #$00 VBXE_BASE_ADDR 
-    47
-    48 204D			exit_check
-    49 204D 60			    rts 
-    50 				.endp ;check_vbxe
-    51
-    52 				;*********************************************************
-    53 				; proc name:  detect_vbxe
-    54 				; purpose:    check major (core) and minor versions at
-    55 				;             locations base+40 and base+41 respectively 
-    56 				;*********************************************************
-    57 204E			.proc detect_vbxe
-    58 				    ; check FX 1.xx (location $40)
-    59 204E A0 40		    ldy #VBXE_CORE_VERSION
-    60 2050 B1 A0		    lda (VBXE_BASE_ADDR),y
-    61 2052 C9 10		    cmp #$10    
-    62 2054 D0 08		    bne exit_detect 
-    63 				    ; check minor version (location $41)
-    64 2056 A0 41		    ldy #VBXE_MINOR_VERSION
-    65 2058 B1 A0		    lda (VBXE_BASE_ADDR),y
-    66 				    ; the following and was recommended to do in
-    67 				    ; the VBXE documentation to avoid minor version differences 
-    68 205A 29 70		    and #$70
-    69 205C C9 20		    cmp #$20    
-    70
-    71 205E			exit_detect 
-    72 205E 60			    rts
-    73 				.endp; detect_vbxe
-    74
-    75 				;*********************************************************
-    76 				; proc name:  setup_vbxe_memac
-    77 				; purpose:    set up MEMAC-A memory for VBXE
-    78 				;             that means set the address space for it
-    79 				;             choose the access (CPU/VBXE) 
-    80 				;             and choose the memory size
-    81 				;*********************************************************
-    82 205F			.proc setup_vbxe_memac   
-    83 				    
-    84 					;-------------------------------------------------------    
-    85 				    ; set MEMAC-A memory 
-    86 				    ; set the MEMAC-A window address
-    87 				    ; set CPU access
-    88 				    ; set 4K size  
-    89 					;-------------------------------------------------------
-    90 205F A0 5E		    ldy #VBXE_MEMAC_CTRL
-    91 2061 A9 98		    lda #(>VBXE_MEMC_WINDOW + MEMC_CPU_ENABLE + MEMC_SIZE_4K) 	
-    92 2063 91 A0			sta	(VBXE_BASE_ADDR),y 	
-    93
-    94 2065 60			    rts 
-    95 				.endp ; setup_vbxe_memac
+    27 				    enable_xdl #1 ; disable
+    27 				 LDX# 1\ JSR VBXE.ENABLE_XDL
+    27 2041 A2 01		 LDX# 1
+    27 2043 20 03 21		 JSR VBXE.ENABLE_XDL
+    28
+    29 				    
+    30 2046 60			    rts 
+    31 				.endp ;initialize
+    32
+    33 				;*********************************************************
+    34 				; proc name:  check_vbxe
+    35 				; purpose:    as VBXE board has few versions, we need to 
+    36 				;             check if locations $D600 or $D700 are used
+    37 				;             if not --> vbxe is not installed 
+    38 				;*********************************************************
+    39 2047			.proc check_vbxe 
+    40 				    ; set $D600 into base address ZP variable 
+    41 2047 A9 00 85 A0 A9 D6 +     mwa #VBXE_D600 VBXE_BASE_ADDR
+    42 204F 20 60 20		    jsr detect_vbxe 
+    43 2052 F0 0B		    beq exit_check
+    44 				    ; if $D600 was not recognized, check $D700
+    45 2054 E6 A1		    inc VBXE_BASE_ADDR+1
+    46 2056 20 60 20		    jsr detect_vbxe 
+    47 2059 F0 04		    beq exit_check 
+    48 				    ; no VBXE installed --> set to 0 
+    49 205B A9 00 85 A0		    mva #$00 VBXE_BASE_ADDR 
+    50
+    51 205F			exit_check
+    52 205F 60			    rts 
+    53 				.endp ;check_vbxe
+    54
+    55 				;*********************************************************
+    56 				; proc name:  detect_vbxe
+    57 				; purpose:    check major (core) and minor versions at
+    58 				;             locations base+40 and base+41 respectively 
+    59 				;*********************************************************
+    60 2060			.proc detect_vbxe
+    61 				    ; check FX 1.xx (location $40)
+    62 2060 A0 40		    ldy #VBXE_CORE_VERSION
+    63 2062 B1 A0		    lda (VBXE_BASE_ADDR),y
+    64 2064 C9 10		    cmp #$10    
+    65 2066 D0 08		    bne exit_detect 
+    66 				    ; check minor version (location $41)
+    67 2068 A0 41		    ldy #VBXE_MINOR_VERSION
+    68 206A B1 A0		    lda (VBXE_BASE_ADDR),y
+    69 				    ; the following and was recommended to do in
+    70 				    ; the VBXE documentation to avoid minor version differences 
+    71 206C 29 70		    and #$70
+    72 206E C9 20		    cmp #$20    
+    73
+    74 2070			exit_detect 
+    75 2070 60			    rts
+    76 				.endp; detect_vbxe
+    77
+    78 				;*********************************************************
+    79 				; proc name:  setup_vbxe_memac
+    80 				; purpose:    set up MEMAC-A memory for VBXE
+    81 				;             that means set the address space for it
+    82 				;             choose the access (CPU/VBXE) 
+    83 				;             and choose the memory size
+    84 				;*********************************************************
+    85 2071			.proc setup_vbxe_memac   
+    86 				    
+    87 					;-------------------------------------------------------    
+    88 				    ; set MEMAC-A memory 
+    89 				    ; set the MEMAC-A window address
+    90 				    ; set CPU access
+    91 				    ; set 4K size  
+    92 					;-------------------------------------------------------
+    93 2071 A0 5E		    ldy #VBXE_MEMAC_CTRL
+    94 2073 A9 98		    lda #(>VBXE_MEMC_WINDOW + MEMC_CPU_ENABLE + MEMC_SIZE_4K) 	
+    95 2075 91 A0			sta	(VBXE_BASE_ADDR),y 	
     96
-    97 				;*********************************************************
-    98 				; proc name:  setup_vbxe_xdl
-    99 				; purpose:    the XDL defines the screen type 
-   100 				;             resolution, scanlines and other 
-   101 				;             copy xdl data to MEMAC-A memory window
-   102 				;             and setup xdl addressed in the vbxe memory 
-   103 				;             address space 
-   104 				;*********************************************************
-   105 2066			.proc setup_vbxe_xdl 
-   106
-   107 				    ; since we're using a standard resolution screen 
-   108 				    ; with 320x192 pixels, and each pixel takes 1 byte
-   109 				    ; the standard resolution screen will take 
-   110 				    ; the address space $000000-$00EFFF (size of $F000) 
-   111 				    ; in the VBXE memory address space
-   112 				    ; so anything else beside the screen memory 
-   113 				    ; should be above this address (above $00F000)
-   114 				    ; to set this address we need to select the proper bank
-   115 				    ; each bank is aligned to $1000 
-   116 				    ; set XDL to the $00F000 address
-   117 				    ; select bank $0F where the XDL will reside
-   118 				    ; and enalbe the MEMAC-A window  
-   119 2066 A9 0F 85 A2		    mva #$0F VBXE_CURRENT_BANK
-   120
-   121 206A A0 5F		    ldy #VBXE_MEM_BANK_SEL
-   122 206C A5 A2		    lda VBXE_CURRENT_BANK
-   123 206E 18			    clc 
-   124 206F 69 80		    adc #MEMAC_GLOBAL_ENABLE
-   125 2071 91 A0		    sta (VBXE_BASE_ADDR),y 
-   126
-   127 				    ; copy the xdl data into the MEMAC-A window address space
-   128 				    ; then set the XDL address to point to the VBXE addres
-   129 				    ; space that will be used for the XDL
-   130
-   131 2073 A2 0C		    ldx #(XDL_DATA_LEN-1)
-   132 2075			loop
-   133 2075 BD 82 21		    lda	XDL_DATA,x 
-   134 2078 9D 00 90		    sta	VBXE_MEMC_WINDOW,X 
-   135 207B CA			    dex 
-   136 207C 10 F7		    bpl loop 
-   137
-   138 				    ; as explained above, the XDL in VBXE address space will
-   139 				    ; reside in $00F000 and on
-   140 				    ; but the XDL data was copied to the MEMAC-A window address
-   141 				    
-   142 207E A0 41		    ldy #VBXE_XDL_ADR0      ; low byte
-   143 2080 A9 00		    lda	#$00
-   144 2082 91 A0			sta	(VBXE_BASE_ADDR),y	
-   145 2084 A0 42		    ldy #VBXE_XDL_ADR1      ; mid byte
-   146 2086 A9 F0		    lda #$F0                  
-   147 2088 91 A0			sta	(VBXE_BASE_ADDR),y	
-   148 208A A0 43		    ldy #VBXE_XDL_ADR2      ; high byte
-   149 208C A9 00		    lda #$00
-   150 208E 91 A0			sta	(VBXE_BASE_ADDR),y	
-   151 				    
-   152 2090 60			    rts 
-   153 				.endp ;setup_vbxe_xdl
-   154
-   155 				;*********************************************************
-   156 				; proc name:  setup_vbxe_palette
-   157 				; purpose:    copy the rgb palette bin file
-   158 				;             data into VBXE memory 
-   159 				;*********************************************************
-   160 2091			.proc setup_vbxe_palette
-   161
-   162 				    ; the sprite sheet data contains rgb color data as well
-   163 				    ; this is reflected in the palette bin file
-   164 				    ; copy the palette bin file data into VBXE rgb registers
-   165 				    ; the rgb bin file contains 256 values for 
-   166 				    ; r,g and b respectively, we copy all of them 
-   167 				    ; start from palette 0 and color 0
-   168 				    
-   169 				    ; select palette 0
-   170 2091 A0 45		    ldy #VBXE_PSEL
-   171 2093 A9 00		    lda #0 
-   172 2095 91 A0		    sta (VBXE_BASE_ADDR),y 
-   173
-   174 				    ; select color 0 
-   175 2097 A0 44		    ldy #VBXE_CSEL
-   176 2099 A9 00		    lda #0 
-   177 209B 91 A0		    sta (VBXE_BASE_ADDR),y 
-   178
-   179 				    ; loop all rgb values
-   180 209D A2 00		    ldx #0
+    97 2077 60			    rts 
+    98 				.endp ; setup_vbxe_memac
+    99
+   100 				;*********************************************************
+   101 				; proc name:  setup_vbxe_xdl
+   102 				; purpose:    the XDL defines the screen type 
+   103 				;             resolution, scanlines and other 
+   104 				;             copy xdl data to MEMAC-A memory window
+   105 				;             and setup xdl addressed in the vbxe memory 
+   106 				;             address space 
+   107 				;*********************************************************
+   108 2078			.proc setup_vbxe_xdl 
+   109
+   110 				    ; since we're using a standard resolution screen 
+   111 				    ; with 320x192 pixels, and each pixel takes 1 byte
+   112 				    ; the standard resolution screen will take 
+   113 				    ; the address space $000000-$00EFFF (size of $F000) 
+   114 				    ; in the VBXE memory address space
+   115 				    ; so anything else beside the screen memory 
+   116 				    ; should be above this address (above $00F000)
+   117 				    ; to set this address we need to select the proper bank
+   118 				    ; each bank is aligned to $1000 
+   119 				    ; set XDL to the $00F000 address
+   120 				    ; select bank $0F where the XDL will reside
+   121 				    ; and enalbe the MEMAC-A window  
+   122 2078 A9 0F 85 A2		    mva #$0F VBXE_CURRENT_BANK
+   123
+   124 207C A0 5F		    ldy #VBXE_MEM_BANK_SEL
+   125 207E A5 A2		    lda VBXE_CURRENT_BANK
+   126 2080 18			    clc 
+   127 2081 69 80		    adc #MEMAC_GLOBAL_ENABLE
+   128 2083 91 A0		    sta (VBXE_BASE_ADDR),y 
+   129
+   130 				    ; copy the xdl data into the MEMAC-A window address space
+   131 				    ; then set the XDL address to point to the VBXE addres
+   132 				    ; space that will be used for the XDL
+   133
+   134 2085 A2 0C		    ldx #(XDL_DATA_LEN-1)
+   135 2087			loop
+   136 2087 BD 94 21		    lda	XDL_DATA,x 
+   137 208A 9D 00 90		    sta	VBXE_MEMC_WINDOW,X 
+   138 208D CA			    dex 
+   139 208E 10 F7		    bpl loop 
+   140
+   141 				    ; as explained above, the XDL in VBXE address space will
+   142 				    ; reside in $00F000 and on
+   143 				    ; but the XDL data was copied to the MEMAC-A window address
+   144 				    
+   145 2090 A0 41		    ldy #VBXE_XDL_ADR0      ; low byte
+   146 2092 A9 00		    lda	#$00
+   147 2094 91 A0			sta	(VBXE_BASE_ADDR),y	
+   148 2096 A0 42		    ldy #VBXE_XDL_ADR1      ; mid byte
+   149 2098 A9 F0		    lda #$F0                  
+   150 209A 91 A0			sta	(VBXE_BASE_ADDR),y	
+   151 209C A0 43		    ldy #VBXE_XDL_ADR2      ; high byte
+   152 209E A9 00		    lda #$00
+   153 20A0 91 A0			sta	(VBXE_BASE_ADDR),y	
+   154 				    
+   155 20A2 60			    rts 
+   156 				.endp ;setup_vbxe_xdl
+   157
+   158 				;*********************************************************
+   159 				; proc name:  setup_vbxe_palette
+   160 				; purpose:    copy the rgb palette bin file
+   161 				;             data into VBXE memory 
+   162 				;*********************************************************
+   163 20A3			.proc setup_vbxe_palette
+   164
+   165 				    ; the sprite sheet data contains rgb color data as well
+   166 				    ; this is reflected in the palette bin file
+   167 				    ; copy the palette bin file data into VBXE rgb registers
+   168 				    ; the rgb bin file contains 256 values for 
+   169 				    ; r,g and b respectively, we copy all of them 
+   170 				    ; start from palette 0 and color 0
+   171 				    
+   172 				    ; select palette 0
+   173 20A3 A0 45		    ldy #VBXE_PSEL
+   174 20A5 A9 00		    lda #0 
+   175 20A7 91 A0		    sta (VBXE_BASE_ADDR),y 
+   176
+   177 				    ; select color 0 
+   178 20A9 A0 44		    ldy #VBXE_CSEL
+   179 20AB A9 00		    lda #0 
+   180 20AD 91 A0		    sta (VBXE_BASE_ADDR),y 
    181
-   182 209F			loop_rgb
-   183 				    ; red 
-   184 209F A0 46		    ldy #VBXE_CR
-   185 20A1 BD 09 23		    lda	palette_bin,x 
-   186 20A4 91 A0		    sta (VBXE_BASE_ADDR),y 
-   187 				    ; green 
-   188 20A6 A0 47		    ldy #VBXE_CG 
-   189 20A8 BD 09 24		    lda palette_bin+$100,x 
-   190 20AB 91 A0		    sta (VBXE_BASE_ADDR),y 
-   191 				    ; blue
-   192 20AD A0 48		    ldy #VBXE_CB 
-   193 20AF BD 09 25		    lda palette_bin+$100+$100,x 
-   194 20B2 91 A0		    sta (VBXE_BASE_ADDR),y 
-   195 				    
-   196 				    ; color selection (VBXE_CSEL) will increment automatically
-   197 20B4 E8			    inx 
-   198 20B5 D0 E8		    bne loop_rgb
-   199 				    
-   200 20B7 60			    rts 
-   201 				.endp ;setup_vbxe_palette
-   202
-   203 				;*********************************************************
-   204 				; proc name:  setup_vbxe_sprite_data
-   205 				; purpose:    copy the sprite bin file data 
-   206 				;             into MEMAC-A window memory 
-   207 				;             take into account the MEMAC-A window size
-   208 				;             you have defined and see if the sprite sheet
-   209 				;             does not exceed that
-   210 				;*********************************************************
-   211 20B8			.proc setup_vbxe_sprite_data
-   212 				    
-   213 				    ; copy the sprite into the MEMAC-A VBXE address
-   214 				    ; the offset needs to take into account the XDL
-   215 				    ; and the blitter blocks so we set the address
-   216 				    ; to be the MEMAC-A window address + $100 as offset
-   217 				    ; $100 is enough as we only have 2 blitter blocks  
-   218 				    ; that takes 2x21 = 42 bytes
-   219 				    
-   220 				    ; set the bin file hi byte address 
-   221 				    ; into a ZP source variable
-   222 20B8 A9 B9 85 B0 A9 21 +     mwa #sprite_data ZP_SRC 
-   223
-   224 				    ; set the MEMAC-A window + offset($100) address  
-   225 				    ; into a ZP destination variable 
-   226 20C0 A9 00		    lda #0
-   227 20C2 85 B2		    sta ZP_DST 
-   228 20C4 A9 91		    lda #>(VBXE_MEMC_WINDOW + $100)
-   229 20C6 85 B3		    sta ZP_DST + 1
-   230
-   231 				    ; loop sprite height 
-   232 20C8 A2 15		    ldx #SPRITE_HEIGHT
-   233 20CA			copy_sprite_row_loop
-   234 20CA A0 14		    ldy #SPRITE_HEIGHT-1
-   235 20CC			copy_sprite_byte_loop
-   236 20CC B1 B0		    lda (ZP_SRC),y
-   237 20CE 91 B2		    sta (ZP_DST),y
-   238 20D0 88			    dey
-   239 20D1 10 F9		    bpl copy_sprite_byte_loop
-   240 20D3 18			    clc
-   241 20D4 A5 B0		    lda ZP_SRC
-   242 20D6 69 10		    adc #SPRITE_WIDTH
-   243 20D8 85 B0		    sta ZP_SRC
-   244 20DA A5 B1		    lda ZP_SRC + 1
-   245 20DC 69 00		    adc #0
-   246 20DE 85 B1		    sta ZP_SRC + 1
-   247
-   248 20E0 18			    clc
-   249 20E1 A5 B2		    lda ZP_DST 
-   250 20E3 69 10		    adc #SPRITE_WIDTH
-   251 20E5 85 B2		    sta ZP_DST 
-   252 20E7 A5 B3		    lda ZP_DST + 1
-   253 20E9 69 00		    adc #0
-   254 20EB 85 B3		    sta ZP_DST + 1
-   255
-   256 20ED CA			    dex
-   257 20EE D0 DA		    bne copy_sprite_row_loop
+   182 				    ; loop all rgb values
+   183 20AF A2 00		    ldx #0
+   184
+   185 20B1			loop_rgb
+   186 				    ; red 
+   187 20B1 A0 46		    ldy #VBXE_CR
+   188 20B3 BD 1B 23		    lda	palette_bin,x 
+   189 20B6 91 A0		    sta (VBXE_BASE_ADDR),y 
+   190 				    ; green 
+   191 20B8 A0 47		    ldy #VBXE_CG 
+   192 20BA BD 1B 24		    lda palette_bin+$100,x 
+   193 20BD 91 A0		    sta (VBXE_BASE_ADDR),y 
+   194 				    ; blue
+   195 20BF A0 48		    ldy #VBXE_CB 
+   196 20C1 BD 1B 25		    lda palette_bin+$100+$100,x 
+   197 20C4 91 A0		    sta (VBXE_BASE_ADDR),y 
+   198 				    
+   199 				    ; color selection (VBXE_CSEL) will increment automatically
+   200 20C6 E8			    inx 
+   201 20C7 D0 E8		    bne loop_rgb
+   202 				    
+   203 20C9 60			    rts 
+   204 				.endp ;setup_vbxe_palette
+   205
+   206 				;*********************************************************
+   207 				; proc name:  setup_vbxe_sprite_data
+   208 				; purpose:    copy the sprite bin file data 
+   209 				;             into MEMAC-A window memory 
+   210 				;             take into account the MEMAC-A window size
+   211 				;             you have defined and see if the sprite sheet
+   212 				;             does not exceed that
+   213 				;*********************************************************
+   214 20CA			.proc setup_vbxe_sprite_data
+   215 				    
+   216 				    ; copy the sprite into the MEMAC-A VBXE address
+   217 				    ; the offset needs to take into account the XDL
+   218 				    ; and the blitter blocks so we set the address
+   219 				    ; to be the MEMAC-A window address + $100 as offset
+   220 				    ; $100 is enough as we only have 2 blitter blocks  
+   221 				    ; that takes 2x21 = 42 bytes
+   222 				    
+   223 				    ; set the bin file hi byte address 
+   224 				    ; into a ZP source variable
+   225 20CA A9 CB 85 B0 A9 21 +     mwa #sprite_data ZP_SRC 
+   226
+   227 				    ; set the MEMAC-A window + offset($100) address  
+   228 				    ; into a ZP destination variable 
+   229 20D2 A9 00		    lda #0
+   230 20D4 85 B2		    sta ZP_DST 
+   231 20D6 A9 91		    lda #>(VBXE_MEMC_WINDOW + $100)
+   232 20D8 85 B3		    sta ZP_DST + 1
+   233
+   234 				    ; loop sprite height 
+   235 20DA A2 15		    ldx #SPRITE_HEIGHT
+   236 20DC			copy_sprite_row_loop
+   237 20DC A0 14		    ldy #SPRITE_HEIGHT-1
+   238 20DE			copy_sprite_byte_loop
+   239 20DE B1 B0		    lda (ZP_SRC),y
+   240 20E0 91 B2		    sta (ZP_DST),y
+   241 20E2 88			    dey
+   242 20E3 10 F9		    bpl copy_sprite_byte_loop
+   243 20E5 18			    clc
+   244 20E6 A5 B0		    lda ZP_SRC
+   245 20E8 69 10		    adc #SPRITE_WIDTH
+   246 20EA 85 B0		    sta ZP_SRC
+   247 20EC A5 B1		    lda ZP_SRC + 1
+   248 20EE 69 00		    adc #0
+   249 20F0 85 B1		    sta ZP_SRC + 1
+   250
+   251 20F2 18			    clc
+   252 20F3 A5 B2		    lda ZP_DST 
+   253 20F5 69 10		    adc #SPRITE_WIDTH
+   254 20F7 85 B2		    sta ZP_DST 
+   255 20F9 A5 B3		    lda ZP_DST + 1
+   256 20FB 69 00		    adc #0
+   257 20FD 85 B3		    sta ZP_DST + 1
    258
-   259 20F0 60			    rts 
-   260 				.endp ;setup_vbxe_sprite_data
+   259 20FF CA			    dex
+   260 2100 D0 DA		    bne copy_sprite_row_loop
    261
-   262 				;*********************************************************
-   263 				; proc name:  enable_xdl
-   264 				; parameters: 0=disable, 1=enable
-   265 				; purpose:    sets 0/1 in VBXE video control to enable
-   266 				;             or disable the display
-   267 				;*********************************************************
-   268 20F1			.proc enable_xdl(.byte x).reg 
-   269 				    
-   270 				    ; x-reg holds enable/disable
-   271 				    ; enable/disable XDL
-   272 20F1 A0 40		    ldy #VBXE_VIDEO_CONTROL
-   273 20F3 8A			    txa 
-   274 20F4 91 A0		    sta (VBXE_BASE_ADDR),y 
-   275
-   276 20F6 60			    rts 
-   277 				.endp ; enable_xdl
+   262 2102 60			    rts 
+   263 				.endp ;setup_vbxe_sprite_data
+   264
+   265 				;*********************************************************
+   266 				; proc name:  enable_xdl
+   267 				; parameters: 0=disable, 1=enable
+   268 				; purpose:    sets 0/1 in VBXE video control to enable
+   269 				;             or disable the display
+   270 				;*********************************************************
+   271 2103			.proc enable_xdl(.byte x).reg 
+   272 				    
+   273 				    ; x-reg holds enable/disable
+   274 				    ; enable/disable XDL
+   275 2103 A0 40		    ldy #VBXE_VIDEO_CONTROL
+   276 2105 8A			    txa 
+   277 2106 91 A0		    sta (VBXE_BASE_ADDR),y 
    278
-   279 				;*********************************************************
-   280 				; proc name:  start_blitter
-   281 				; purpose:    once blitter is free (not busy)
-   282 				;             start 
-   283 				;*********************************************************
-   284 20F7			.proc start_blitter 
-   285 				    ; first wait for blitter busy to finish
-   286 20F7 20 01 21		    jsr wait_for_blitter
-   287
-   288 20FA A0 53		    ldy #VBXE_BLITTER_START
-   289 20FC A9 01		    lda #$01 
-   290 20FE 91 A0		    sta (VBXE_BASE_ADDR),y 
-   291 				    
-   292 2100 60			    rts 
-   293
-   294 				.endp ; start_blitter
-   295
-   296 				;*********************************************************
-   297 				; proc name:  wait_for_blitter
-   298 				; purpose:    read the register BLITTER BUSY 
-   299 				;             and wait till its not busy anymore
-   300 				;*********************************************************
-   301 2101			.proc wait_for_blitter
-   302 				    ; read the blitter busy register
-   303 				    ; if it is 0 -->it is ready  
-   304 2101 A0 53		    ldy #VBXE_BLITTER_BUSY
-   305 2103			do_wait
-   306 2103 B1 A0		    lda (VBXE_BASE_ADDR),y
-   307 2105 D0 FC		    bne do_wait 
-   308 				    
-   309 2107 60			    rts
-   310 				.endp ; wait_for_blitter
-   311
-   312 				;*********************************************************
-   313 				; proc name:  setup_vbxe_blitter_block
-   314 				; purpose:    you need to set before calling this proc
-   315 				;             ZP_SRC and 3 bytes for VBXE_MEM_ADDR    
-   316 				;             from the VBXE 3 bytes address 
-   317 				;             we take the bank , and set it 
-   318 				;             and we set the ZP_DST 
-   319 				;             and the 3 bytes blitter address 
-   320 				;*********************************************************
-   321 2108			.proc setup_vbxe_blitter_block
-   322 				    ; source was set before the call to this proc
-   323 				    ; set the destination 
-   324 				    ; the VBXE address is with this format $00-F0-00
-   325 				    ; we need to get the half part of the high byte
-   326 				    ; and half part of the mid byte to select the proper
-   327 				    ; VBXE bank  
-   328 				    
-   329 				    ; load mid byte 
-   330 2108 A5 A4		    lda VBXE_MEM_ADDR+1 
-   331 				    ; store it temporary 
-   332 210A 85 B3		    sta ZP_TMP
-   333 				    ; load high byte 
-   334 210C A5 A5		    lda VBXE_MEM_ADDR+2
-   335 				    ; 4 shifts 4 rolls to get the half byte and half byte  
-   336 210E 06 B3		    asl ZP_TMP 
-   337 2110 2A			    rol 
-   338 2111 06 B3		    asl ZP_TMP 
-   339 2113 2A			    rol 
-   340 2114 06 B3		    asl ZP_TMP 
-   341 2116 2A			    rol 
-   342 2117 06 B3		    asl ZP_TMP 
-   343 2119 2A			    rol 
-   344
-   345 				    ; select the bank for this address of VBXE
-   346 				    ; restore current bank back 
-   347 211A A0 5F		    ldy #VBXE_MEM_BANK_SEL
-   348 				    ; acc holds the bank  
-   349 211C 18			    clc 
-   350 211D 69 80		    adc #MEMAC_GLOBAL_ENABLE
-   351 211F 91 A0		    sta (VBXE_BASE_ADDR),y 
-   352
-   353 				    ; we need to add to the MEMAC-A window the offset 
-   354 				    ; of the VBXE address 
-   355 2121 A5 A3		    lda VBXE_MEM_ADDR
-   356 2123 85 B2		    sta ZP_DST 
-   357 2125 A5 A4		    lda VBXE_MEM_ADDR+1
-   358 				    ; extrac the 3rd digit 
-   359 2127 29 0F		    and #$0F 
-   360 2129 09 90		    ora #>VBXE_MEMC_WINDOW
-   361 212B 85 B3		    sta ZP_DST+1 
-   362
-   363 				    ; loop copy
-   364 212D A0 14		    ldy #BCB_SIZE-1
+   279 2108 60			    rts 
+   280 				.endp ; enable_xdl
+   281
+   282 				;*********************************************************
+   283 				; proc name:  start_blitter
+   284 				; purpose:    once blitter is free (not busy)
+   285 				;             start 
+   286 				;*********************************************************
+   287 2109			.proc start_blitter 
+   288 				    ; first wait for blitter busy to finish
+   289 2109 20 13 21		    jsr wait_for_blitter
+   290
+   291 210C A0 53		    ldy #VBXE_BLITTER_START
+   292 210E A9 01		    lda #$01 
+   293 2110 91 A0		    sta (VBXE_BASE_ADDR),y 
+   294 				    
+   295 2112 60			    rts 
+   296
+   297 				.endp ; start_blitter
+   298
+   299 				;*********************************************************
+   300 				; proc name:  wait_for_blitter
+   301 				; purpose:    read the register BLITTER BUSY 
+   302 				;             and wait till its not busy anymore
+   303 				;*********************************************************
+   304 2113			.proc wait_for_blitter
+   305 				    ; read the blitter busy register
+   306 				    ; if it is 0 -->it is ready  
+   307 2113 A0 53		    ldy #VBXE_BLITTER_BUSY
+   308 2115			do_wait
+   309 2115 B1 A0		    lda (VBXE_BASE_ADDR),y
+   310 2117 D0 FC		    bne do_wait 
+   311 				    
+   312 2119 60			    rts
+   313 				.endp ; wait_for_blitter
+   314
+   315 				;*********************************************************
+   316 				; proc name:  setup_vbxe_blitter_block
+   317 				; purpose:    you need to set before calling this proc
+   318 				;             ZP_SRC and 3 bytes for VBXE_MEM_ADDR    
+   319 				;             from the VBXE 3 bytes address 
+   320 				;             we take the bank , and set it 
+   321 				;             and we set the ZP_DST 
+   322 				;             and the 3 bytes blitter address 
+   323 				;*********************************************************
+   324 211A			.proc setup_vbxe_blitter_block
+   325 				    ; source was set before the call to this proc
+   326 				    ; set the destination 
+   327 				    ; the VBXE address is with this format $00-F0-00
+   328 				    ; we need to get the half part of the high byte
+   329 				    ; and half part of the mid byte to select the proper
+   330 				    ; VBXE bank  
+   331 				    
+   332 				    ; load mid byte 
+   333 211A A5 A4		    lda VBXE_MEM_ADDR+1 
+   334 				    ; store it temporary 
+   335 211C 85 B3		    sta ZP_TMP
+   336 				    ; load high byte 
+   337 211E A5 A5		    lda VBXE_MEM_ADDR+2
+   338 				    ; 4 shifts 4 rolls to get the half byte and half byte  
+   339 2120 06 B3		    asl ZP_TMP 
+   340 2122 2A			    rol 
+   341 2123 06 B3		    asl ZP_TMP 
+   342 2125 2A			    rol 
+   343 2126 06 B3		    asl ZP_TMP 
+   344 2128 2A			    rol 
+   345 2129 06 B3		    asl ZP_TMP 
+   346 212B 2A			    rol 
+   347
+   348 				    ; select the bank for this address of VBXE
+   349 				    ; restore current bank back 
+   350 212C A0 5F		    ldy #VBXE_MEM_BANK_SEL
+   351 				    ; acc holds the bank  
+   352 212E 18			    clc 
+   353 212F 69 80		    adc #MEMAC_GLOBAL_ENABLE
+   354 2131 91 A0		    sta (VBXE_BASE_ADDR),y 
+   355
+   356 				    ; we need to add to the MEMAC-A window the offset 
+   357 				    ; of the VBXE address 
+   358 2133 A5 A3		    lda VBXE_MEM_ADDR
+   359 2135 85 B2		    sta ZP_DST 
+   360 2137 A5 A4		    lda VBXE_MEM_ADDR+1
+   361 				    ; extrac the 3rd digit 
+   362 2139 29 0F		    and #$0F 
+   363 213B 09 90		    ora #>VBXE_MEMC_WINDOW
+   364 213D 85 B3		    sta ZP_DST+1 
    365
-   366 212F			copy_loop
-   367 212F B1 B0		    lda (ZP_SRC),y
-   368 2131 91 B2		    sta (ZP_DST),y
-   369 2133 88			    dey
-   370 2134 10 F9		    bpl copy_loop
-   371 				    
-   372 				    ; set the blitter address in VBXE memory address space
-   373 				    ; $00F00E
-   374 2136 A0 50		    ldy #VBXE_BL_ADR0 ; low byte
-   375 2138 A5 A3		    lda VBXE_MEM_ADDR 
-   376 213A 91 A0		    sta (VBXE_BASE_ADDR),y 
-   377
-   378 213C A0 51		    ldy #VBXE_BL_ADR1 ; mid byte
-   379 213E A5 A4		    lda VBXE_MEM_ADDR+1   
-   380 2140 91 A0		    sta (VBXE_BASE_ADDR),y 
-   381
-   382 2142 A0 52		    ldy #VBXE_BL_ADR2 ; high byte
-   383 2144 A5 A5		    lda VBXE_MEM_ADDR+2 
-   384 2146 91 A0		    sta (VBXE_BASE_ADDR),y 
-   385
-   386
-   387 				    ; restore current bank back 
-   388 2148 A0 5F		    ldy #VBXE_MEM_BANK_SEL
-   389 214A A5 A2		    lda VBXE_CURRENT_BANK  
-   390 214C 18			    clc 
-   391 214D 69 80		    adc #MEMAC_GLOBAL_ENABLE
-   392 214F 91 A0		    sta (VBXE_BASE_ADDR),y 
-   393
-   394 2151 60			    rts 
-   395 				.endp ;setup_vbxe_blitter_block
+   366 				    ; loop copy
+   367 213F A0 14		    ldy #BCB_SIZE-1
+   368
+   369 2141			copy_loop
+   370 2141 B1 B0		    lda (ZP_SRC),y
+   371 2143 91 B2		    sta (ZP_DST),y
+   372 2145 88			    dey
+   373 2146 10 F9		    bpl copy_loop
+   374 				    
+   375 				    ; set the blitter address in VBXE memory address space
+   376 				    ; $00F00E
+   377 2148 A0 50		    ldy #VBXE_BL_ADR0 ; low byte
+   378 214A A5 A3		    lda VBXE_MEM_ADDR 
+   379 214C 91 A0		    sta (VBXE_BASE_ADDR),y 
+   380
+   381 214E A0 51		    ldy #VBXE_BL_ADR1 ; mid byte
+   382 2150 A5 A4		    lda VBXE_MEM_ADDR+1   
+   383 2152 91 A0		    sta (VBXE_BASE_ADDR),y 
+   384
+   385 2154 A0 52		    ldy #VBXE_BL_ADR2 ; high byte
+   386 2156 A5 A5		    lda VBXE_MEM_ADDR+2 
+   387 2158 91 A0		    sta (VBXE_BASE_ADDR),y 
+   388
+   389
+   390 				    ; restore current bank back 
+   391 215A A0 5F		    ldy #VBXE_MEM_BANK_SEL
+   392 215C A5 A2		    lda VBXE_CURRENT_BANK  
+   393 215E 18			    clc 
+   394 215F 69 80		    adc #MEMAC_GLOBAL_ENABLE
+   395 2161 91 A0		    sta (VBXE_BASE_ADDR),y 
    396
-   397 				;*********************************************************
-   398 				; proc name:  setup_vbxe_clear_screen_bcb
-   399 				; purpose:    set up the ZP_SRC to bcb clear screen data
-   400 				;             set up the vbxe address to $00F00E
-   401 				;             the bank will be $0F as the MEMAC window is set 
-   402 				;             to 4K size so all banks addresses are 
-   403 				;             aligned with $1000 
-   404 				;*********************************************************
-   405 2152			.proc setup_vbxe_clear_screen_bcb
-   406 				    ; copy the blitter address to ZP source varialbe 
-   407 2152 A9 A4 85 B0 A9 21 +     mwa #BCB_CLEAR_SCREEN ZP_SRC
-   408 				    
-   409 				    ; set blitter block to $00F00E
-   410 215A A9 0E 85 A3		    mva #$0E VBXE_MEM_ADDR
-   411 215E A9 F0 85 A4		    mva #$F0 VBXE_MEM_ADDR+1
-   412 2162 A9 00 85 A5		    mva #$00 VBXE_MEM_ADDR+2
-   413
-   414 2166 20 08 21		    jsr setup_vbxe_blitter_block
-   415
-   416 2169 60			    rts
-   417 				.endp ;setup_vbxe_clear_screen_bcb 
+   397 2163 60			    rts 
+   398 				.endp ;setup_vbxe_blitter_block
+   399
+   400 				;*********************************************************
+   401 				; proc name:  setup_vbxe_clear_screen_bcb
+   402 				; purpose:    set up the ZP_SRC to bcb clear screen data
+   403 				;             set up the vbxe address to $00F00E
+   404 				;             the bank will be $0F as the MEMAC window is set 
+   405 				;             to 4K size so all banks addresses are 
+   406 				;             aligned with $1000 
+   407 				;*********************************************************
+   408 2164			.proc setup_vbxe_clear_screen_bcb
+   409 				    ; copy the blitter address to ZP source varialbe 
+   410 2164 A9 B6 85 B0 A9 21 +     mwa #BCB_CLEAR_SCREEN ZP_SRC
+   411 				    
+   412 				    ; set blitter block to $00F00E
+   413 216C A9 0E 85 A3		    mva #$0E VBXE_MEM_ADDR
+   414 2170 A9 F0 85 A4		    mva #$F0 VBXE_MEM_ADDR+1
+   415 2174 A9 00 85 A5		    mva #$00 VBXE_MEM_ADDR+2
+   416
+   417 2178 20 1A 21		    jsr setup_vbxe_blitter_block
    418
-   419 				;*********************************************************
-   420 				; proc name:  setup_vbxe_sprite_draw_bcb
-   421 				; purpose:    set up the ZP_SRC to bcb sprite draw data
-   422 				;             set up the vbxe address to $00F023
-   423 				;             each blitter block is 21 bytes and last
-   424 				;             block was set to $00F00E
-   425 				;             the bank will be $0F again as the MEMAC window is set 
-   426 				;             to 4K size so all banks addresses are 
-   427 				;             aligned with $1000 
-   428 				;*********************************************************
-   429 216A			.proc setup_vbxe_sprite_draw_bcb
-   430 				    
-   431 				    ; copy the blitter address to ZP source varialbe 
-   432 216A A9 8F 85 B0 A9 21 +     mwa #BCB_SPRITE_DRAW ZP_SRC
+   419 217B 60			    rts
+   420 				.endp ;setup_vbxe_clear_screen_bcb 
+   421
+   422 				;*********************************************************
+   423 				; proc name:  setup_vbxe_sprite_draw_bcb
+   424 				; purpose:    set up the ZP_SRC to bcb sprite draw data
+   425 				;             set up the vbxe address to $00F023
+   426 				;             each blitter block is 21 bytes and last
+   427 				;             block was set to $00F00E
+   428 				;             the bank will be $0F again as the MEMAC window is set 
+   429 				;             to 4K size so all banks addresses are 
+   430 				;             aligned with $1000 
+   431 				;*********************************************************
+   432 217C			.proc setup_vbxe_sprite_draw_bcb
    433 				    
-   434 				    ; set blitter block to $00F00E
-   435 2172 A9 23 85 A3		    mva #$23 VBXE_MEM_ADDR
-   436 2176 A9 F0 85 A4		    mva #$F0 VBXE_MEM_ADDR+1
-   437 217A A9 00 85 A5		    mva #$00 VBXE_MEM_ADDR+2
-   438
-   439 217E 20 08 21		    jsr setup_vbxe_blitter_block
-   440
-   441 2181 60			    rts
-   442 				.endp ;setup_vbxe_sprite_draw_bcb 
+   434 				    ; copy the blitter address to ZP source varialbe 
+   435 217C A9 A1 85 B0 A9 21 +     mwa #BCB_SPRITE_DRAW ZP_SRC
+   436 				    
+   437 				    ; set blitter block to $00F00E
+   438 2184 A9 23 85 A3		    mva #$23 VBXE_MEM_ADDR
+   439 2188 A9 F0 85 A4		    mva #$F0 VBXE_MEM_ADDR+1
+   440 218C A9 00 85 A5		    mva #$00 VBXE_MEM_ADDR+2
+   441
+   442 2190 20 1A 21		    jsr setup_vbxe_blitter_block
    443
-   444 				;---------------------------------------------
-   445 				; include files
-   446 2182			    icl 'vbxe.h'
+   444 2193 60			    rts
+   445 				.endp ;setup_vbxe_sprite_draw_bcb 
+   446
+   447 				;---------------------------------------------
+   448 				; include files
+   449 2194			    icl 'vbxe.h'
 Source: C:\CC65\Projects\VBXE\VBXE wrapper\vbxe.h
      1 				;-------------------------------------------
      2 				; vbxe.h
@@ -694,26 +708,26 @@ Source: C:\CC65\Projects\VBXE\VBXE wrapper\vbxe.h
    131
    132 				;-----------------------------------------
    133 				; XDL definition
-   134 2182			XDL_DATA 
+   134 2194			XDL_DATA 
    135 				; top part of screen, overscan lines
    136 				; no overlay and repeat for 23 lines
-   137 2182 24			    dta XDLC_OVOFF | XDLC_RPTL ; first byte 
-   138 2183 00			    dta $0                     ; second byte, not used here
-   139 2184 17			    dta $17                    ; repeat data $17=23
+   137 2194 24			    dta XDLC_OVOFF | XDLC_RPTL ; first byte 
+   138 2195 00			    dta $0                     ; second byte, not used here
+   139 2196 17			    dta $17                    ; repeat data $17=23
    140
    141 				; main part of the screen the
    142 				; graphics mode, repeat for 192 scanlines 
    143 				; setting overlay address $000000 and step
-   144 2185 72			    dta XDLC_GMON | XDLC_MAPOFF | XDLC_RPTL | XDLC_OVADR ; first byte
-   145 2186 88			    dta XDLC_ATT  | XDLC_END   ; second byte
-   146 2187 C0			    dta $C0         ; repeat $C0=192 
-   147 2188 00			    dta $00         ; overlay address $000000
-   148 2189 00			    dta $00
-   149 218A 00			    dta $00 
-   150 218B 40			    dta $40        ; step $140=320 pixels per line
-   151 218C 01			    dta $01
-   152 218D 01			    dta XDLC_ATT_OV_WIDTH_NORMAL    ; NORMAL = 320 pixel
-   153 218E FF			    dta XDLC_ATT_MAIN_PRIORITY_OVERLAY_ALL
+   144 2197 72			    dta XDLC_GMON | XDLC_MAPOFF | XDLC_RPTL | XDLC_OVADR ; first byte
+   145 2198 88			    dta XDLC_ATT  | XDLC_END   ; second byte
+   146 2199 C0			    dta $C0         ; repeat $C0=192 
+   147 219A 00			    dta $00         ; overlay address $000000
+   148 219B 00			    dta $00
+   149 219C 00			    dta $00 
+   150 219D 40			    dta $40        ; step $140=320 pixels per line
+   151 219E 01			    dta $01
+   152 219F 01			    dta XDLC_ATT_OV_WIDTH_NORMAL    ; NORMAL = 320 pixel
+   153 21A0 FF			    dta XDLC_ATT_MAIN_PRIORITY_OVERLAY_ALL
    154
    155 = 000D			XDL_DATA_LEN equ *-XDL_DATA
    156
@@ -725,95 +739,95 @@ Source: C:\CC65\Projects\VBXE\VBXE wrapper\vbxe.h
    162 				; sprite sheet definitions
    163 = 0010			SPRITE_WIDTH    equ 16
    164 = 0015			SPRITE_HEIGHT   equ 21
-   447 218F			    icl 'bliiter_blocks.h'
+   450 21A1			    icl 'bliiter_blocks.h'
 Source: C:\CC65\Projects\VBXE\VBXE wrapper\bliiter_blocks.h
      1 				; blitter blocks
      2
      3 				;-----------------------------------------------
      4 				; blit data for "sprite"
      5 				;-----------------------------------------------
-     6 218F			BCB_SPRITE_DRAW
+     6 21A1			BCB_SPRITE_DRAW
      7 				    ; BCB is 21 bytes long
      8 				    ; 3 bytes = address of the sprite data we are copying
      9 				    ; our sprite resides in VBXE memory $00F100
-    10 218F 00			    dta $00
-    11 2190 F1			    dta $F1
-    12 2191 00			    dta $00
+    10 21A1 00			    dta $00
+    11 21A2 F1			    dta $F1
+    12 21A3 00			    dta $00
     13 				    ; step Y - sprite width for each change of Y
-    14 2192 10 00		    dta a(SPRITE_WIDTH)
+    14 21A4 10 00		    dta a(SPRITE_WIDTH)
     15 				    ; step X - step 1 byte each change of X
-    16 2194 01			    dta $1
-    17 2195			address_sprite_on_screen
+    16 21A6 01			    dta $1
+    17 21A7			address_sprite_on_screen
     18 				    ; the address of the VBXE screen
-    19 2195 80			    dta $80
-    20 2196 50			    dta $50
-    21 2197 00			    dta $00
+    19 21A7 80			    dta $80
+    20 21A8 50			    dta $50
+    21 21A9 00			    dta $00
     22 				    ; step Y - screen width in pixels $140 (320) 
-    23 2198 40 01		    dta a($140)
-    24 219A 01			    dta $1
+    23 21AA 40 01		    dta a($140)
+    24 21AC 01			    dta $1
     25 				    ; width of blitter to copy  
-    26 219B 0F 00		    dta a(SPRITE_WIDTH - 1)
+    26 21AD 0F 00		    dta a(SPRITE_WIDTH - 1)
     27 				    ; height of blitter to copy 
-    28 219D 14			    dta SPRITE_HEIGHT - 1
+    28 21AF 14			    dta SPRITE_HEIGHT - 1
     29 				    ; AND mask for source
-    30 219E FF			    dta $FF
+    30 21B0 FF			    dta $FF
     31 				    ; XOR mask for source
-    32 219F 00			    dta $00 
+    32 21B1 00			    dta $00 
     33 				    ; AND mask collision detection
-    34 21A0 00			    dta $00 
+    34 21B2 00			    dta $00 
     35 				    ; ZOOM value X-Axis Y-Axis
-    36 21A1 00			    dta $00
+    36 21B3 00			    dta $00
     37 				    ; Pattern fill 
-    38 21A2 00			    dta $00
-    39 21A3 01			    dta BCB_COPY_WITH_TRANSPARENT
+    38 21B4 00			    dta $00
+    39 21B5 01			    dta BCB_COPY_WITH_TRANSPARENT
     40
     41 				;-----------------------------------------------
     42 				; blit data for clear screen
     43 				;-----------------------------------------------
-    44 21A4			BCB_CLEAR_SCREEN 
+    44 21B6			BCB_CLEAR_SCREEN 
     45 				    ; BCB is 21 bytes long
     46 				    ; 3 bytes = address of the sprite data we are copying
     47 				    ; our sprite resides in VBXE memory $00F100
-    48 21A4 00			    dta $00
-    49 21A5 00			    dta $00
-    50 21A6 00			    dta $00
+    48 21B6 00			    dta $00
+    49 21B7 00			    dta $00
+    50 21B8 00			    dta $00
     51 				    ; step Y - sprite width for each change of Y
-    52 21A7 00 00		    dta a($0000) ; 320 - screen width
+    52 21B9 00 00		    dta a($0000) ; 320 - screen width
     53 				    ; step X - step 1 byte each change of X
-    54 21A9 00			    dta $0
+    54 21BB 00			    dta $0
     55 				    ; the address of the VBXE screen top left
-    56 21AA 00			    dta $00
-    57 21AB 00			    dta $00
-    58 21AC 00			    dta $00
+    56 21BC 00			    dta $00
+    57 21BD 00			    dta $00
+    58 21BE 00			    dta $00
     59 				    ; step Y - screen width in pixels $140 (320) 
-    60 21AD 40 01		    dta a($140)
+    60 21BF 40 01		    dta a($140)
     61 				    ; step X - 1 pixel 
-    62 21AF 01			    dta $01
+    62 21C1 01			    dta $01
     63 				    ; width of blitter to copy  
-    64 21B0 3F 01		    dta a($140 - 1) 
+    64 21C2 3F 01		    dta a($140 - 1) 
     65 				    ; height of blitter to copy 
-    66 21B2 BF			    dta $C0-$1 
+    66 21C4 BF			    dta $C0-$1 
     67 				    ; AND mask for source
-    68 21B3 00			    dta $00
+    68 21C5 00			    dta $00
     69 				    ; XOR mask for source
-    70 21B4 FF			    dta $FF
+    70 21C6 00			    dta $00
     71 				    ; AND mask collision detection
-    72 21B5 00			    dta $00 
+    72 21C7 00			    dta $00 
     73 				    ; ZOOM value X-Axis Y-Axis
-    74 21B6 00			    dta $00
+    74 21C8 00			    dta $00
     75 				    ; Pattern fill 
-    76 21B7 00			    dta $00
-    77 21B8 00			    dta $00
+    76 21C9 00			    dta $00
+    77 21CA 00			    dta $00
     78
     79 = 0015			BCB_SIZE equ 21
-   448 21B9			sprite_data
-   449 21B9 00 00 00 00 01 01 +     ins 'sprite.bin'
-   450 2309			palette_bin
-   451 2309 00 00 D9 03 04 05 +     ins 'palette.bin'
-   452 				;---------------------------------------------
-   453
-   454 				.endp; vbxe 
-    27 2609			    icl 'os.asm'
+   451 21CB			sprite_data
+   452 21CB 00 00 00 00 01 01 +     ins 'sprite.bin'
+   453 231B			palette_bin
+   454 231B 00 00 D9 03 04 05 +     ins 'palette.bin'
+   455 				;---------------------------------------------
+   456
+   457 				.endp; vbxe 
+    38 261B			    icl 'os.asm'
 Source: C:\CC65\Projects\VBXE\VBXE wrapper\os.asm
      1 				;##################################################
      2 				; os.asm
@@ -823,77 +837,77 @@ Source: C:\CC65\Projects\VBXE\VBXE wrapper\os.asm
      6 				;##################################################
      7 				; replace the OS NMI handler with our own
      8 				;##################################################
-     9 2609			.proc nmi_handler
-    10 2609 2C 0F D4		    	bit nmires
-    11 260C 10 03		    	bpl not_dli
-    12 260E 6C 00 02		    	jmp (VDSLST)
-    13 2611			not_dli:
-    14 2611 D8					cld
-    15 2612 48					pha
-    16 2613 8A					txa
-    17 2614 48					pha
-    18 2615 98					tya
-    19 2616 48					pha
-    20 2617 8D 0F D4				sta nmires
-    21 261A 6C 22 02				jmp (VVBLKI)
+     9 261B			.proc nmi_handler
+    10 261B 2C 0F D4		    	bit nmires
+    11 261E 10 03		    	bpl not_dli
+    12 2620 6C 00 02		    	jmp (VDSLST)
+    13 2623			not_dli:
+    14 2623 D8					cld
+    15 2624 48					pha
+    16 2625 8A					txa
+    17 2626 48					pha
+    18 2627 98					tya
+    19 2628 48					pha
+    20 2629 8D 0F D4				sta nmires
+    21 262C 6C 22 02				jmp (VVBLKI)
     22
-    23 261D 60					rts
+    23 262F 60					rts
     24 				.endp
     25
     26
     27 				;##################################################
     28 				; default VBI routine when disabling OS
     29 				;##################################################
-    30 261E			.proc default_vbi_routine	
+    30 2630			.proc default_vbi_routine	
     31
-    32 261E A9 01			lda #$01
-    33 2620 8D 61 26			sta default_vblank
+    32 2630 A9 01			lda #$01
+    33 2632 8D 73 26			sta default_vblank
     34
-    35 2623 68				pla
-    36 2624 A8			    tay
-    37 2625 68			    pla
-    38 2626 AA			    tax
-    39 2627 68			    pla
-    40 2628 40			    rti
+    35 2635 68				pla
+    36 2636 A8			    tay
+    37 2637 68			    pla
+    38 2638 AA			    tax
+    39 2639 68			    pla
+    40 263A 40			    rti
     41
     42 				.endp
     43
     44 				;##################################################
     45 				; wait until VBLANK occured
     46 				;##################################################
-    47 2629			.proc wait_for_default_vblank
-    48 2629			@
-    49 2629 AD 61 26			lda default_vblank
-    50 262C C9 00			cmp #$00
-    51 262E F0 F9			beq @-
+    47 263B			.proc wait_for_default_vblank
+    48 263B			@
+    49 263B AD 73 26			lda default_vblank
+    50 263E C9 00			cmp #$00
+    51 2640 F0 F9			beq @-
     52
-    53 2630 A9 00			lda #$00
-    54 2632 8D 61 26			sta default_vblank
+    53 2642 A9 00			lda #$00
+    54 2644 8D 73 26			sta default_vblank
     55
-    56 2635 60				rts
+    56 2647 60				rts
     57 				.endp 
     58
     59
     60 				;##################################################
     61 				; use RAM under ROM by setting FE into PORTB
     62 				;##################################################
-    63 2636			.proc disable_os
-    64 2636 78			    sei
-    65 2637 D8			    cld
-    66 2638 A9 00		    lda #$00  
-    67 263A 8D 0E D2		    sta IRQEN
-    68 263D A9 00		    lda #$00
-    69 263F 8D 0E D4		    sta NMIEN
-    70 2642 A9 FE			lda #$FE
-    71 2644 8D 01 D3			sta PORTB
+    63 2648			.proc disable_os
+    64 2648 78			    sei
+    65 2649 D8			    cld
+    66 264A A9 00		    lda #$00  
+    67 264C 8D 0E D2		    sta IRQEN
+    68 264F A9 00		    lda #$00
+    69 2651 8D 0E D4		    sta NMIEN
+    70 2654 A9 FE			lda #$FE
+    71 2656 8D 01 D3			sta PORTB
     72 					
-    73 2647 A9 09 8D FA FF A9 + 	mwa #nmi_handler NMI
-    74 2651 A9 1E 8D 22 02 A9 + 	mwa #default_vbi_routine VVBLKI
+    73 2659 A9 1B 8D FA FF A9 + 	mwa #nmi_handler NMI
+    74 2663 A9 30 8D 22 02 A9 + 	mwa #default_vbi_routine VVBLKI
     75
-    76 265B A9 40			lda #$40
-    77 265D 8D 0E D4			sta NMIEN
+    76 266D A9 40			lda #$40
+    77 266F 8D 0E D4			sta NMIEN
     78 					
-    79 2660 60				rts
+    79 2672 60				rts
     80 				.endp
     81 				;-----------------------
     82
@@ -901,4 +915,4 @@ Source: C:\CC65\Projects\VBXE\VBXE wrapper\os.asm
     84 				;-----------------------
     85 				; variables 
     86 				;-----------------------
-    87 2661 00			default_vblank  .byte   0
+    87 2673 00			default_vblank  .byte   0

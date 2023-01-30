@@ -14,13 +14,24 @@
     jsr vbxe.initialize
     
 main_loop
-    jsr vbxe.setup_vbxe_sprite_draw_bcb 
-    jsr vbxe.start_blitter 
+    jsr wait_for_default_vblank
+
+    ; screen address is $BC40 (for default display list)
+    ldx #3
+loop_text
+    lda text,x 
+    sta $BCFF,x 
+    dex 
+    bpl loop_text
+
 
     jmp main_loop
 
     rts 
 .endp ; main
+
+text 
+    dta 'v','b','x','e'
 
     icl 'sys_defs.h'
     icl 'vbxe.asm'

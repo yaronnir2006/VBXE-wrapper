@@ -67,7 +67,7 @@ BCB_CLEAR_SCREEN
     ; AND mask for source
     dta $00
     ; XOR mask for source
-    dta $FF
+    dta $00
     ; AND mask collision detection
     dta $00 
     ; ZOOM value X-Axis Y-Axis
