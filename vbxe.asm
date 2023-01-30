@@ -119,6 +119,8 @@ exit_detect
     ; set XDL to the $00F000 address
     ; select bank $0F where the XDL will reside
     ; and enalbe the MEMAC-A window  
+    
+    ; store current bank for later use
     mva #$0F VBXE_CURRENT_BANK
 
     ldy #VBXE_MEM_BANK_SEL
