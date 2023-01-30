@@ -10,8 +10,13 @@ VBXE_MEM_ADDR     equ $A3 ; 3 bytes
 ;-------------------------------------------
 ; D600/D700
 VBXE_D600 equ $D600 
+;-------------------------------------------
 
+;-------------------------------------------
+; MEMAC-A window address
 VBXE_MEMC_WINDOW equ $9000
+;-------------------------------------------
+
 ;-------------------------------------------
 ; VBXE main registers 
 ; some of the registeres can be r/w  
@@ -64,17 +69,26 @@ VBXE_MEM_BANK_SEL equ $5F ; write & read
 ;-----------------------------------------
 
 ;-----------------------------------------
-; MEMAC_CONTROL
+; Video Control attributes
+VBXE_VIDEO_CONTROL_XDL_ENABLED                  equ %00000001
+VBXE_VIDEO_CONTROL_16_SHADES_ENABLED            equ %00000010
+VBXE_VIDEO_CONTROL_DISABLE_OVERLAY_TRASPARENCY  equ %00000100
+VBXE_VIDEO_CONTROL_ADD_ADDITINAL_TRANSPARENCY   equ %00001000
+;-----------------------------------------
+
+;-----------------------------------------
+; MEMAC attributes
 MEMC_SIZE_4K        equ %00000000   ; 4k size
 MEMC_SIZE_8K        equ %00000001   ; 8k size
 MEMC_SIZE_16K       equ %00000010   ; 16k size
 MEMC_SIZE_32K       equ %00000011   ; 32k size
 MEMC_ANTIC_ENABLE   equ %00000100   ; ANTIC window access
 MEMC_CPU_ENABLE     equ %00001000   ; CPU window access 
+;-----------------------------------------
+
+;-----------------------------------------
 ; MEMS (MEMAC BANK SELECTION)
-MEMAC_GLOBAL_ENABLE equ %10000000   ; enable MEMAC-A window
-
-
+MEMAC_GLOBAL_ENABLE equ %10000000   ; enable the MEMAC window
 ;-----------------------------------------
 
 ;-----------------------------------------
@@ -130,35 +144,7 @@ XDLC_ATT_MAIN_PRIORITY_OVERLAY_ALL      equ %11111111
 ;-----------------------------------------
 
 ;-----------------------------------------
-; XDL definition
-XDL_DATA 
-; top part of screen, overscan lines
-; no overlay and repeat for 23 lines
-    dta XDLC_OVOFF | XDLC_RPTL ; first byte 
-    dta $0                     ; second byte, not used here
-    dta $17                    ; repeat data $17=23
-
-; main part of the screen the
-; graphics mode, repeat for 192 scanlines 
-; setting overlay address $000000 and step
-    dta XDLC_GMON | XDLC_MAPOFF | XDLC_RPTL | XDLC_OVADR ; first byte
-    dta XDLC_ATT  | XDLC_END   ; second byte
-    dta $C0         ; repeat $C0=192 
-    dta $00         ; overlay address $000000
-    dta $00
-    dta $00 
-    dta $40        ; step $140=320 pixels per line
-    dta $01
-    dta XDLC_ATT_OV_WIDTH_NORMAL    ; NORMAL = 320 pixel
-    dta XDLC_ATT_MAIN_PRIORITY_OVERLAY_ALL
-
-XDL_DATA_LEN equ *-XDL_DATA
-
-
-BCB_COPY_WITH_TRANSPARENT equ $01
-
-
-;-----------------------------------------
 ; sprite sheet definitions
-SPRITE_WIDTH    equ 16
-SPRITE_HEIGHT   equ 21
+SPRITE_WIDTH    equ 28;16
+SPRITE_HEIGHT   equ 81;21
+;-----------------------------------------

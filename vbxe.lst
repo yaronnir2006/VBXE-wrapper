@@ -7,19 +7,19 @@ Source: C:\CC65\Projects\VBXE\VBXE wrapper\main.asm
      5 				.proc main
      6
      7 				    ; turn off ANTIC DMA
-     8 FFFF> 2000-2673> A9 00 +     mva #$00 DMACTL
+     8 FFFF> 2000-2DFF> A9 00 +     mva #$00 DMACTL
      9
     10 				    ; disable OS
-    11 2005 20 48 26		    jsr disable_os
+    11 2005 20 D4 2D		    jsr disable_os
     12
     13 				    ; init VBXE
     14 2008 20 21 20		    jsr vbxe.initialize
     15 				    
     16 200B			main_loop
-    17 200B 20 3B 26		    jsr wait_for_default_vblank
+    17 200B 20 C7 2D		    jsr wait_for_default_vblank
     18
     19 				    ; screen address is $BC40 (for default display list)
-    20 200E A2 03		    ldx #3
+    20 200E A2 04		    ldx #4
     21 2010			loop_text
     22 2010 BD 1D 20		    lda text,x 
     23 2013 9D FF BC		    sta $BCFF,x 
@@ -148,9 +148,9 @@ Source: C:\CC65\Projects\VBXE\VBXE wrapper\vbxe.asm
     24 203B 20 7C 21		    jsr vbxe.setup_vbxe_sprite_draw_bcb 
     25 203E 20 09 21		    jsr vbxe.start_blitter 
     26 				    
-    27 				    enable_xdl #1 ; disable
-    27 				 LDX# 1\ JSR VBXE.ENABLE_XDL
-    27 2041 A2 01		 LDX# 1
+    27 				    enable_xdl #VBXE_VIDEO_CONTROL_XDL_ENABLED ; disable
+    27 				 LDX# VBXE_VIDEO_CONTROL_XDL_ENABLED\ JSR VBXE.ENABLE_XDL
+    27 2041 A2 01		 LDX# VBXE_VIDEO_CONTROL_XDL_ENABLED
     27 2043 20 03 21		 JSR VBXE.ENABLE_XDL
     28
     29 				    
@@ -312,15 +312,15 @@ Source: C:\CC65\Projects\VBXE\VBXE wrapper\vbxe.asm
    185 20B1			loop_rgb
    186 				    ; red 
    187 20B1 A0 46		    ldy #VBXE_CR
-   188 20B3 BD 1B 23		    lda	palette_bin,x 
+   188 20B3 BD A7 2A		    lda	palette_bin,x 
    189 20B6 91 A0		    sta (VBXE_BASE_ADDR),y 
    190 				    ; green 
    191 20B8 A0 47		    ldy #VBXE_CG 
-   192 20BA BD 1B 24		    lda palette_bin+$100,x 
+   192 20BA BD A7 2B		    lda palette_bin+$100,x 
    193 20BD 91 A0		    sta (VBXE_BASE_ADDR),y 
    194 				    ; blue
    195 20BF A0 48		    ldy #VBXE_CB 
-   196 20C1 BD 1B 25		    lda palette_bin+$100+$100,x 
+   196 20C1 BD A7 2C		    lda palette_bin+$100+$100,x 
    197 20C4 91 A0		    sta (VBXE_BASE_ADDR),y 
    198 				    
    199 				    ; color selection (VBXE_CSEL) will increment automatically
@@ -359,9 +359,9 @@ Source: C:\CC65\Projects\VBXE\VBXE wrapper\vbxe.asm
    232 20D8 85 B3		    sta ZP_DST + 1
    233
    234 				    ; loop sprite height 
-   235 20DA A2 15		    ldx #SPRITE_HEIGHT
+   235 20DA A2 51		    ldx #SPRITE_HEIGHT
    236 20DC			copy_sprite_row_loop
-   237 20DC A0 14		    ldy #SPRITE_HEIGHT-1
+   237 20DC A0 50		    ldy #SPRITE_HEIGHT-1
    238 20DE			copy_sprite_byte_loop
    239 20DE B1 B0		    lda (ZP_SRC),y
    240 20E0 91 B2		    sta (ZP_DST),y
@@ -369,7 +369,7 @@ Source: C:\CC65\Projects\VBXE\VBXE wrapper\vbxe.asm
    242 20E3 10 F9		    bpl copy_sprite_byte_loop
    243 20E5 18			    clc
    244 20E6 A5 B0		    lda ZP_SRC
-   245 20E8 69 10		    adc #SPRITE_WIDTH
+   245 20E8 69 1C		    adc #SPRITE_WIDTH
    246 20EA 85 B0		    sta ZP_SRC
    247 20EC A5 B1		    lda ZP_SRC + 1
    248 20EE 69 00		    adc #0
@@ -377,7 +377,7 @@ Source: C:\CC65\Projects\VBXE\VBXE wrapper\vbxe.asm
    250
    251 20F2 18			    clc
    252 20F3 A5 B2		    lda ZP_DST 
-   253 20F5 69 10		    adc #SPRITE_WIDTH
+   253 20F5 69 1C		    adc #SPRITE_WIDTH
    254 20F7 85 B2		    sta ZP_DST 
    255 20F9 A5 B3		    lda ZP_DST + 1
    256 20FB 69 00		    adc #0
@@ -587,159 +587,172 @@ Source: C:\CC65\Projects\VBXE\VBXE wrapper\vbxe.h
     10 				;-------------------------------------------
     11 				; D600/D700
     12 = D600			VBXE_D600 equ $D600 
-    13
-    14 = 9000			VBXE_MEMC_WINDOW equ $9000
+    13 				;-------------------------------------------
+    14
     15 				;-------------------------------------------
-    16 				; VBXE main registers 
-    17 				; some of the registeres can be r/w  
-    18 = 0040			VBXE_VIDEO_CONTROL equ $40  ; write
-    19 = 0040			VBXE_CORE_VERSION  equ $40  ; read
-    20
-    21 = 0041			VBXE_XDL_ADR0      equ $41  ; write
-    22 = 0041			VBXE_MINOR_VERSION equ $41  ; read
-    23
-    24 = 0042			VBXE_XDL_ADR1 equ $42 ; write
-    25 = 0043			VBXE_XDL_ADR2 equ $43 ; write 
-    26
-    27 = 0044			VBXE_CSEL equ $44 ; write 
-    28 = 0045			VBXE_PSEL equ $45 ; write 
-    29
-    30 = 0046			VBXE_CR equ $46 ; write
-    31 = 0047			VBXE_CG equ $47 ; write
-    32 = 0048			VBXE_CB equ $48 ; write 
-    33
-    34 = 0049			VBXE_COLMASK equ $49 ; write
-    35
-    36 = 004A			VBXE_COLCLR    equ $4A ; write
-    37 = 004A			VBXE_COLDETECT equ $4A ; read
+    16 				; MEMAC-A window address
+    17 = 9000			VBXE_MEMC_WINDOW equ $9000
+    18 				;-------------------------------------------
+    19
+    20 				;-------------------------------------------
+    21 				; VBXE main registers 
+    22 				; some of the registeres can be r/w  
+    23 = 0040			VBXE_VIDEO_CONTROL equ $40  ; write
+    24 = 0040			VBXE_CORE_VERSION  equ $40  ; read
+    25
+    26 = 0041			VBXE_XDL_ADR0      equ $41  ; write
+    27 = 0041			VBXE_MINOR_VERSION equ $41  ; read
+    28
+    29 = 0042			VBXE_XDL_ADR1 equ $42 ; write
+    30 = 0043			VBXE_XDL_ADR2 equ $43 ; write 
+    31
+    32 = 0044			VBXE_CSEL equ $44 ; write 
+    33 = 0045			VBXE_PSEL equ $45 ; write 
+    34
+    35 = 0046			VBXE_CR equ $46 ; write
+    36 = 0047			VBXE_CG equ $47 ; write
+    37 = 0048			VBXE_CB equ $48 ; write 
     38
-    39 				; 4B-4F skipped, no use
+    39 = 0049			VBXE_COLMASK equ $49 ; write
     40
-    41 = 0050			VBXE_BL_ADR0            equ $50 ; write 
-    42 = 0050			VBXE_BLT_COLLISION_CODE equ $50 ; read
+    41 = 004A			VBXE_COLCLR    equ $4A ; write
+    42 = 004A			VBXE_COLDETECT equ $4A ; read
     43
-    44 = 0051			VBXE_BL_ADR1            equ $51 ; write 
-    45 = 0052			VBXE_BL_ADR2            equ $52 ; write 
-    46
-    47 = 0053			VBXE_BLITTER_START equ $53 ; write
-    48 = 0053			VBXE_BLITTER_BUSY  equ $53 ; read 
-    49
-    50 = 0054			VBXE_IRQ_CONTROL equ $54 ; write 
-    51 = 0054			VBXE_IRQ_STATUS  equ $54 ; read 
-    52
-    53 = 0055			VBXE_P0 equ $55 ; write
-    54 = 0056			VBXE_P1 equ $56 ; write
-    55 = 0057			VBXE_P2 equ $57 ; write
-    56 = 0058			VBXE_P3 equ $58 ; write
+    44 				; 4B-4F skipped, no use
+    45
+    46 = 0050			VBXE_BL_ADR0            equ $50 ; write 
+    47 = 0050			VBXE_BLT_COLLISION_CODE equ $50 ; read
+    48
+    49 = 0051			VBXE_BL_ADR1            equ $51 ; write 
+    50 = 0052			VBXE_BL_ADR2            equ $52 ; write 
+    51
+    52 = 0053			VBXE_BLITTER_START equ $53 ; write
+    53 = 0053			VBXE_BLITTER_BUSY  equ $53 ; read 
+    54
+    55 = 0054			VBXE_IRQ_CONTROL equ $54 ; write 
+    56 = 0054			VBXE_IRQ_STATUS  equ $54 ; read 
     57
-    58 				; 59-5C skipped, no use
-    59
-    60 = 005D			VBXE_MEMAC_B_CONTROL equ $5D ; write 
-    61 = 005E			VBXE_MEMAC_CTRL      equ $5E ; write & read
+    58 = 0055			VBXE_P0 equ $55 ; write
+    59 = 0056			VBXE_P1 equ $56 ; write
+    60 = 0057			VBXE_P2 equ $57 ; write
+    61 = 0058			VBXE_P3 equ $58 ; write
     62
-    63 = 005F			VBXE_MEM_BANK_SEL equ $5F ; write & read 
-    64 				;-----------------------------------------
-    65
-    66 				;-----------------------------------------
-    67 				; MEMAC_CONTROL
-    68 = 0000			MEMC_SIZE_4K        equ %00000000   ; 4k size
-    69 = 0001			MEMC_SIZE_8K        equ %00000001   ; 8k size
-    70 = 0002			MEMC_SIZE_16K       equ %00000010   ; 16k size
-    71 = 0003			MEMC_SIZE_32K       equ %00000011   ; 32k size
-    72 = 0004			MEMC_ANTIC_ENABLE   equ %00000100   ; ANTIC window access
-    73 = 0008			MEMC_CPU_ENABLE     equ %00001000   ; CPU window access 
-    74 				; MEMS (MEMAC BANK SELECTION)
-    75 = 0080			MEMAC_GLOBAL_ENABLE equ %10000000   ; enable MEMAC-A window
-    76
-    77
-    78 				;-----------------------------------------
-    79
-    80 				;-----------------------------------------
-    81 				; XDLC controls definition
-    82
-    83 				; first byte 
-    84 = 0001			XDLC_TMON   equ %00000001 ; Overlay text mode
-    85 = 0002			XDLC_GMON   equ %00000010 ; Overlay graphics mode
-    86 = 0004			XDLC_OVOFF  equ %00000100 ; disable overlay  
-    87 = 0008			XDLC_MAPON  equ %00001000 ; enable color attributes
-    88 = 0010			XDLC_MAPOFF equ %00010000 ; disavble color attributes
-    89 = 0020			XDLC_RPTL   equ %00100000 ; repeat for the next x scanlines
-    90 = 0040			XDLC_OVADR  equ %01000000 ; set the address of the Overlay display memory (screen memory) and the step of the overlay display (how many pixels per line) 
-    91 = 0080			XDLC_OVSCRL equ %10000000 ; set scrolling values for the text mode
-    92 				; second byte 
-    93 = 0001			XDLC_CHBASE equ %00000001 ; sets the font (text mode)
-    94 = 0002			XDLC_MAPADR equ %00000010 ; sets the address and step of the colour attribute map
-    95 = 0004			XDLC_MAPPAR equ %00000100 ; sets the scrolling values, width and height of a field in the colour attribute map
-    96 = 0008			XDLC_ATT    equ %00001000 ; sets the display size(Narrow=256 pixels, Normal=320 pixels, Wide = 336 pixels) the Overlay priority to the ANTIC display and the Overlay color modification
-    97 = 0010			XDLC_HR     equ %00010000 ; enables the high resolution mode, works only with graphics mode, 640 pixels with 16 colors supported 
-    98 = 0020			XDLC_LR     equ %00100000 ; enables the low resolution mode, works only with graphics mode, 160 pixels with 256 colors supported 
-    99 				; bit 6 in second byte is not in use (reserved)
-   100 = 0080			XDLC_END    equ %10000000 ; ends the XDL and wait for VSYNC to occur
-   101
-   102 				;-----------------------------------------
-   103 				; XDLC XDLC_ATT first byte attributes
-   104 				; OV_WIDTH
-   105 = 0000			XDLC_ATT_OV_WIDTH_NARROW equ %00000000 ; bit 0,1=00(256 pixels)
-   106 = 0001			XDLC_ATT_OV_WIDTH_NORMAL equ %00000001 ; bit 0,1=01(320 pixels)
-   107 = 0002			XDLC_ATT_OV_WIDTH_WIDE   equ %00000010 ; bit 0,1=10(336 pixels)
-   108 				; XDL OV PALETTE
-   109 = 0000			XDLC_ATT_OV_PALETTE_00   equ %00000000 ; bit 4,5=00
-   110 = 0010			XDLC_ATT_OV_PALETTE_01   equ %00010000 ; bit 4,5=01
-   111 = 0020			XDLC_ATT_OV_PALETTE_10   equ %00100000 ; bit 4,5=10
-   112 = 0030			XDLC_ATT_OV_PALETTE_11   equ %00110000 ; bit 4,5=11
-   113 				; XDL PF PALETTE
-   114 = 0000			XDLC_ATT_PF_PALETTE_00   equ %00000000 ; bit 6,7=00
-   115 = 0040			XDLC_ATT_PF_PALETTE_01   equ %01000000 ; bit 6,7=01
-   116 = 0080			XDLC_ATT_PF_PALETTE_10   equ %10000000 ; bit 6,7=10
-   117 = 00C0			XDLC_ATT_PF_PALETTE_11   equ %11000000 ; bit 6,7=11
-   118 				;-----------------------------------------
-   119 				; XDLC XDLC_ATT second byte attributes
-   120 				; MAIN_PRIORITY
-   121 = 0001			XDLC_ATT_MAIN_PRIORITY_OVERLAY_PM0      equ %00000001 
-   122 = 0002			XDLC_ATT_MAIN_PRIORITY_OVERLAY_PM1      equ %00000010 
-   123 = 0004			XDLC_ATT_MAIN_PRIORITY_OVERLAY_PM2      equ %00000100 
-   124 = 0008			XDLC_ATT_MAIN_PRIORITY_OVERLAY_PM3      equ %00001000 
-   125 = 0010			XDLC_ATT_MAIN_PRIORITY_OVERLAY_PF0      equ %00010000 
-   126 = 0020			XDLC_ATT_MAIN_PRIORITY_OVERLAY_PF1      equ %00100000 
-   127 = 0040			XDLC_ATT_MAIN_PRIORITY_OVERLAY_PF2_PF3  equ %01000000 
-   128 = 0080			XDLC_ATT_MAIN_PRIORITY_OVERLAY_COLBK    equ %10000000 
-   129 = 00FF			XDLC_ATT_MAIN_PRIORITY_OVERLAY_ALL      equ %11111111
-   130 				;-----------------------------------------
-   131
+    63 				; 59-5C skipped, no use
+    64
+    65 = 005D			VBXE_MEMAC_B_CONTROL equ $5D ; write 
+    66 = 005E			VBXE_MEMAC_CTRL      equ $5E ; write & read
+    67
+    68 = 005F			VBXE_MEM_BANK_SEL equ $5F ; write & read 
+    69 				;-----------------------------------------
+    70
+    71 				;-----------------------------------------
+    72 				; Video Control attributes
+    73 = 0001			VBXE_VIDEO_CONTROL_XDL_ENABLED                  equ %00000001
+    74 = 0002			VBXE_VIDEO_CONTROL_16_SHADES_ENABLED            equ %00000010
+    75 = 0004			VBXE_VIDEO_CONTROL_DISABLE_OVERLAY_TRASPARENCY  equ %00000100
+    76 = 0008			VBXE_VIDEO_CONTROL_ADD_ADDITINAL_TRANSPARENCY   equ %00001000
+    77 				;-----------------------------------------
+    78
+    79 				;-----------------------------------------
+    80 				; MEMAC attributes
+    81 = 0000			MEMC_SIZE_4K        equ %00000000   ; 4k size
+    82 = 0001			MEMC_SIZE_8K        equ %00000001   ; 8k size
+    83 = 0002			MEMC_SIZE_16K       equ %00000010   ; 16k size
+    84 = 0003			MEMC_SIZE_32K       equ %00000011   ; 32k size
+    85 = 0004			MEMC_ANTIC_ENABLE   equ %00000100   ; ANTIC window access
+    86 = 0008			MEMC_CPU_ENABLE     equ %00001000   ; CPU window access 
+    87 				;-----------------------------------------
+    88
+    89 				;-----------------------------------------
+    90 				; MEMS (MEMAC BANK SELECTION)
+    91 = 0080			MEMAC_GLOBAL_ENABLE equ %10000000   ; enable the MEMAC window
+    92 				;-----------------------------------------
+    93
+    94 				;-----------------------------------------
+    95 				; XDLC controls definition
+    96
+    97 				; first byte 
+    98 = 0001			XDLC_TMON   equ %00000001 ; Overlay text mode
+    99 = 0002			XDLC_GMON   equ %00000010 ; Overlay graphics mode
+   100 = 0004			XDLC_OVOFF  equ %00000100 ; disable overlay  
+   101 = 0008			XDLC_MAPON  equ %00001000 ; enable color attributes
+   102 = 0010			XDLC_MAPOFF equ %00010000 ; disavble color attributes
+   103 = 0020			XDLC_RPTL   equ %00100000 ; repeat for the next x scanlines
+   104 = 0040			XDLC_OVADR  equ %01000000 ; set the address of the Overlay display memory (screen memory) and the step of the overlay display (how many pixels per line) 
+   105 = 0080			XDLC_OVSCRL equ %10000000 ; set scrolling values for the text mode
+   106 				; second byte 
+   107 = 0001			XDLC_CHBASE equ %00000001 ; sets the font (text mode)
+   108 = 0002			XDLC_MAPADR equ %00000010 ; sets the address and step of the colour attribute map
+   109 = 0004			XDLC_MAPPAR equ %00000100 ; sets the scrolling values, width and height of a field in the colour attribute map
+   110 = 0008			XDLC_ATT    equ %00001000 ; sets the display size(Narrow=256 pixels, Normal=320 pixels, Wide = 336 pixels) the Overlay priority to the ANTIC display and the Overlay color modification
+   111 = 0010			XDLC_HR     equ %00010000 ; enables the high resolution mode, works only with graphics mode, 640 pixels with 16 colors supported 
+   112 = 0020			XDLC_LR     equ %00100000 ; enables the low resolution mode, works only with graphics mode, 160 pixels with 256 colors supported 
+   113 				; bit 6 in second byte is not in use (reserved)
+   114 = 0080			XDLC_END    equ %10000000 ; ends the XDL and wait for VSYNC to occur
+   115
+   116 				;-----------------------------------------
+   117 				; XDLC XDLC_ATT first byte attributes
+   118 				; OV_WIDTH
+   119 = 0000			XDLC_ATT_OV_WIDTH_NARROW equ %00000000 ; bit 0,1=00(256 pixels)
+   120 = 0001			XDLC_ATT_OV_WIDTH_NORMAL equ %00000001 ; bit 0,1=01(320 pixels)
+   121 = 0002			XDLC_ATT_OV_WIDTH_WIDE   equ %00000010 ; bit 0,1=10(336 pixels)
+   122 				; XDL OV PALETTE
+   123 = 0000			XDLC_ATT_OV_PALETTE_00   equ %00000000 ; bit 4,5=00
+   124 = 0010			XDLC_ATT_OV_PALETTE_01   equ %00010000 ; bit 4,5=01
+   125 = 0020			XDLC_ATT_OV_PALETTE_10   equ %00100000 ; bit 4,5=10
+   126 = 0030			XDLC_ATT_OV_PALETTE_11   equ %00110000 ; bit 4,5=11
+   127 				; XDL PF PALETTE
+   128 = 0000			XDLC_ATT_PF_PALETTE_00   equ %00000000 ; bit 6,7=00
+   129 = 0040			XDLC_ATT_PF_PALETTE_01   equ %01000000 ; bit 6,7=01
+   130 = 0080			XDLC_ATT_PF_PALETTE_10   equ %10000000 ; bit 6,7=10
+   131 = 00C0			XDLC_ATT_PF_PALETTE_11   equ %11000000 ; bit 6,7=11
    132 				;-----------------------------------------
-   133 				; XDL definition
-   134 2194			XDL_DATA 
-   135 				; top part of screen, overscan lines
-   136 				; no overlay and repeat for 23 lines
-   137 2194 24			    dta XDLC_OVOFF | XDLC_RPTL ; first byte 
-   138 2195 00			    dta $0                     ; second byte, not used here
-   139 2196 17			    dta $17                    ; repeat data $17=23
-   140
-   141 				; main part of the screen the
-   142 				; graphics mode, repeat for 192 scanlines 
-   143 				; setting overlay address $000000 and step
-   144 2197 72			    dta XDLC_GMON | XDLC_MAPOFF | XDLC_RPTL | XDLC_OVADR ; first byte
-   145 2198 88			    dta XDLC_ATT  | XDLC_END   ; second byte
-   146 2199 C0			    dta $C0         ; repeat $C0=192 
-   147 219A 00			    dta $00         ; overlay address $000000
-   148 219B 00			    dta $00
-   149 219C 00			    dta $00 
-   150 219D 40			    dta $40        ; step $140=320 pixels per line
-   151 219E 01			    dta $01
-   152 219F 01			    dta XDLC_ATT_OV_WIDTH_NORMAL    ; NORMAL = 320 pixel
-   153 21A0 FF			    dta XDLC_ATT_MAIN_PRIORITY_OVERLAY_ALL
-   154
-   155 = 000D			XDL_DATA_LEN equ *-XDL_DATA
-   156
-   157
-   158 = 0001			BCB_COPY_WITH_TRANSPARENT equ $01
-   159
-   160
-   161 				;-----------------------------------------
-   162 				; sprite sheet definitions
-   163 = 0010			SPRITE_WIDTH    equ 16
-   164 = 0015			SPRITE_HEIGHT   equ 21
-   450 21A1			    icl 'bliiter_blocks.h'
+   133 				; XDLC XDLC_ATT second byte attributes
+   134 				; MAIN_PRIORITY
+   135 = 0001			XDLC_ATT_MAIN_PRIORITY_OVERLAY_PM0      equ %00000001 
+   136 = 0002			XDLC_ATT_MAIN_PRIORITY_OVERLAY_PM1      equ %00000010 
+   137 = 0004			XDLC_ATT_MAIN_PRIORITY_OVERLAY_PM2      equ %00000100 
+   138 = 0008			XDLC_ATT_MAIN_PRIORITY_OVERLAY_PM3      equ %00001000 
+   139 = 0010			XDLC_ATT_MAIN_PRIORITY_OVERLAY_PF0      equ %00010000 
+   140 = 0020			XDLC_ATT_MAIN_PRIORITY_OVERLAY_PF1      equ %00100000 
+   141 = 0040			XDLC_ATT_MAIN_PRIORITY_OVERLAY_PF2_PF3  equ %01000000 
+   142 = 0080			XDLC_ATT_MAIN_PRIORITY_OVERLAY_COLBK    equ %10000000 
+   143 = 00FF			XDLC_ATT_MAIN_PRIORITY_OVERLAY_ALL      equ %11111111
+   144 				;-----------------------------------------
+   145
+   146 				;-----------------------------------------
+   147 				; sprite sheet definitions
+   148 = 001C			SPRITE_WIDTH    equ 28;16
+   149 = 0051			SPRITE_HEIGHT   equ 81;21
+   150 				;-----------------------------------------
+   450 2194			    icl 'xdl_data.h'
+Source: C:\CC65\Projects\VBXE\VBXE wrapper\xdl_data.h
+     1 				; XDL data 
+     2 				;-----------------------------------------
+     3 				; XDL definition
+     4 2194			XDL_DATA 
+     5 				    ; top part of screen, overscan lines
+     6 				    ; no overlay and repeat for 23 lines
+     7 2194 24			    dta XDLC_OVOFF | XDLC_RPTL ; first byte 
+     8 2195 00			    dta $0                     ; second byte, not used here
+     9 2196 17			    dta $17                    ; repeat data $17=23
+    10
+    11 				; main part of the screen the
+    12 				; graphics mode, repeat for 192 scanlines 
+    13 				; setting overlay address $000000 and step
+    14 2197 72			    dta XDLC_GMON | XDLC_MAPOFF | XDLC_RPTL | XDLC_OVADR ; first byte
+    15 2198 88			    dta XDLC_ATT  | XDLC_END   ; second byte
+    16 2199 C0			    dta $C0         ; repeat $C0=192 
+    17 219A 00			    dta $00         ; overlay address $000000
+    18 219B 00			    dta $00
+    19 219C 00			    dta $00 
+    20 219D 40			    dta $40        ; step $140=320 pixels per line
+    21 219E 01			    dta $01
+    22 219F 01			    dta XDLC_ATT_OV_WIDTH_NORMAL    ; NORMAL = 320 pixel
+    23 21A0 FF			    dta XDLC_ATT_MAIN_PRIORITY_OVERLAY_ALL
+    24
+    25 = 000D			XDL_DATA_LEN equ *-XDL_DATA
+   451 21A1			    icl 'bliiter_blocks.h'
 Source: C:\CC65\Projects\VBXE\VBXE wrapper\bliiter_blocks.h
      1 				; blitter blocks
      2
@@ -754,80 +767,80 @@ Source: C:\CC65\Projects\VBXE\VBXE wrapper\bliiter_blocks.h
     11 21A2 F1			    dta $F1
     12 21A3 00			    dta $00
     13 				    ; step Y - sprite width for each change of Y
-    14 21A4 10 00		    dta a(SPRITE_WIDTH)
+    14 21A4 1C 00		    dta a(SPRITE_WIDTH)
     15 				    ; step X - step 1 byte each change of X
     16 21A6 01			    dta $1
-    17 21A7			address_sprite_on_screen
-    18 				    ; the address of the VBXE screen
-    19 21A7 80			    dta $80
-    20 21A8 50			    dta $50
-    21 21A9 00			    dta $00
-    22 				    ; step Y - screen width in pixels $140 (320) 
-    23 21AA 40 01		    dta a($140)
-    24 21AC 01			    dta $1
-    25 				    ; width of blitter to copy  
-    26 21AD 0F 00		    dta a(SPRITE_WIDTH - 1)
-    27 				    ; height of blitter to copy 
-    28 21AF 14			    dta SPRITE_HEIGHT - 1
-    29 				    ; AND mask for source
-    30 21B0 FF			    dta $FF
-    31 				    ; XOR mask for source
-    32 21B1 00			    dta $00 
-    33 				    ; AND mask collision detection
-    34 21B2 00			    dta $00 
-    35 				    ; ZOOM value X-Axis Y-Axis
-    36 21B3 00			    dta $00
-    37 				    ; Pattern fill 
-    38 21B4 00			    dta $00
-    39 21B5 01			    dta BCB_COPY_WITH_TRANSPARENT
-    40
-    41 				;-----------------------------------------------
-    42 				; blit data for clear screen
-    43 				;-----------------------------------------------
-    44 21B6			BCB_CLEAR_SCREEN 
-    45 				    ; BCB is 21 bytes long
-    46 				    ; 3 bytes = address of the sprite data we are copying
-    47 				    ; our sprite resides in VBXE memory $00F100
-    48 21B6 00			    dta $00
-    49 21B7 00			    dta $00
-    50 21B8 00			    dta $00
-    51 				    ; step Y - sprite width for each change of Y
-    52 21B9 00 00		    dta a($0000) ; 320 - screen width
-    53 				    ; step X - step 1 byte each change of X
-    54 21BB 00			    dta $0
-    55 				    ; the address of the VBXE screen top left
-    56 21BC 00			    dta $00
-    57 21BD 00			    dta $00
-    58 21BE 00			    dta $00
-    59 				    ; step Y - screen width in pixels $140 (320) 
-    60 21BF 40 01		    dta a($140)
-    61 				    ; step X - 1 pixel 
-    62 21C1 01			    dta $01
-    63 				    ; width of blitter to copy  
-    64 21C2 3F 01		    dta a($140 - 1) 
-    65 				    ; height of blitter to copy 
-    66 21C4 BF			    dta $C0-$1 
-    67 				    ; AND mask for source
-    68 21C5 00			    dta $00
-    69 				    ; XOR mask for source
-    70 21C6 00			    dta $00
-    71 				    ; AND mask collision detection
-    72 21C7 00			    dta $00 
-    73 				    ; ZOOM value X-Axis Y-Axis
-    74 21C8 00			    dta $00
-    75 				    ; Pattern fill 
-    76 21C9 00			    dta $00
-    77 21CA 00			    dta $00
-    78
-    79 = 0015			BCB_SIZE equ 21
-   451 21CB			sprite_data
-   452 21CB 00 00 00 00 01 01 +     ins 'sprite.bin'
-   453 231B			palette_bin
-   454 231B 00 00 D9 03 04 05 +     ins 'palette.bin'
-   455 				;---------------------------------------------
-   456
-   457 				.endp; vbxe 
-    38 261B			    icl 'os.asm'
+    17 				    ; the address of middle of the VBXE visible screen
+    18 21A7 80			    dta $80
+    19 21A8 50			    dta $50
+    20 21A9 00			    dta $00
+    21 				    ; step Y - screen width in pixels $140 (320) 
+    22 21AA 40 01		    dta a($140)
+    23 21AC 01			    dta $1
+    24 				    ; width of blitter to copy  
+    25 21AD 1B 00		    dta a(SPRITE_WIDTH - 1)
+    26 				    ; height of blitter to copy 
+    27 21AF 50			    dta SPRITE_HEIGHT - 1
+    28 				    ; AND mask for source
+    29 21B0 FF			    dta $FF
+    30 				    ; XOR mask for source
+    31 21B1 00			    dta $00 
+    32 				    ; AND mask collision detection
+    33 21B2 00			    dta $00 
+    34 				    ; ZOOM value X-Axis Y-Axis
+    35 21B3 00			    dta $00
+    36 				    ; Pattern fill 
+    37 21B4 00			    dta $00
+    38 21B5 01			    dta $01
+    39
+    40 				;-----------------------------------------------
+    41 				; blit data for clear screen
+    42 				;-----------------------------------------------
+    43 21B6			BCB_CLEAR_SCREEN 
+    44 				    ; BCB is 21 bytes long
+    45 				    ; 3 bytes = address of the sprite data we are copying
+    46 				    ; our sprite resides in VBXE memory $00F100
+    47 21B6 00			    dta $00
+    48 21B7 00			    dta $00
+    49 21B8 00			    dta $00
+    50 				    ; step Y - sprite width for each change of Y
+    51 21B9 00 00		    dta a($0000) ; 320 - screen width
+    52 				    ; step X - step 1 byte each change of X
+    53 21BB 00			    dta $0
+    54 				    ; the address of the VBXE screen top left
+    55 21BC 00			    dta $00
+    56 21BD 00			    dta $00
+    57 21BE 00			    dta $00
+    58 				    ; step Y - screen width in pixels $140 (320) 
+    59 21BF 40 01		    dta a($140)
+    60 				    ; step X - 1 pixel 
+    61 21C1 01			    dta $01
+    62 				    ; width of blitter to copy  
+    63 21C2 3F 01		    dta a($140 - 1) 
+    64 				    ; height of blitter to copy 
+    65 21C4 BF			    dta $C0-$1 
+    66 				    ; AND mask for source
+    67 21C5 00			    dta $00
+    68 				    ; XOR mask for source
+    69 21C6 00			    dta $00
+    70 				    ; AND mask collision detection
+    71 21C7 00			    dta $00 
+    72 				    ; ZOOM value X-Axis Y-Axis
+    73 21C8 00			    dta $00
+    74 				    ; Pattern fill 
+    75 21C9 00			    dta $00
+    76 21CA 00			    dta $00
+    77
+    78 = 0015			BCB_SIZE equ 21
+    79
+   452 21CB			sprite_data
+   453 21CB 00 00 00 00 00 00 +     ins 'sprite_monster.bin'
+   454 2AA7			palette_bin
+   455 2AA7 00 56 99 47 09 05 +     ins 'palette_monster.bin'
+   456 				;---------------------------------------------
+   457
+   458 				.endp; vbxe 
+    38 2DA7			    icl 'os.asm'
 Source: C:\CC65\Projects\VBXE\VBXE wrapper\os.asm
      1 				;##################################################
      2 				; os.asm
@@ -837,77 +850,77 @@ Source: C:\CC65\Projects\VBXE\VBXE wrapper\os.asm
      6 				;##################################################
      7 				; replace the OS NMI handler with our own
      8 				;##################################################
-     9 261B			.proc nmi_handler
-    10 261B 2C 0F D4		    	bit nmires
-    11 261E 10 03		    	bpl not_dli
-    12 2620 6C 00 02		    	jmp (VDSLST)
-    13 2623			not_dli:
-    14 2623 D8					cld
-    15 2624 48					pha
-    16 2625 8A					txa
-    17 2626 48					pha
-    18 2627 98					tya
-    19 2628 48					pha
-    20 2629 8D 0F D4				sta nmires
-    21 262C 6C 22 02				jmp (VVBLKI)
+     9 2DA7			.proc nmi_handler
+    10 2DA7 2C 0F D4		    	bit nmires
+    11 2DAA 10 03		    	bpl not_dli
+    12 2DAC 6C 00 02		    	jmp (VDSLST)
+    13 2DAF			not_dli:
+    14 2DAF D8					cld
+    15 2DB0 48					pha
+    16 2DB1 8A					txa
+    17 2DB2 48					pha
+    18 2DB3 98					tya
+    19 2DB4 48					pha
+    20 2DB5 8D 0F D4				sta nmires
+    21 2DB8 6C 22 02				jmp (VVBLKI)
     22
-    23 262F 60					rts
+    23 2DBB 60					rts
     24 				.endp
     25
     26
     27 				;##################################################
     28 				; default VBI routine when disabling OS
     29 				;##################################################
-    30 2630			.proc default_vbi_routine	
+    30 2DBC			.proc default_vbi_routine	
     31
-    32 2630 A9 01			lda #$01
-    33 2632 8D 73 26			sta default_vblank
+    32 2DBC A9 01			lda #$01
+    33 2DBE 8D FF 2D			sta default_vblank
     34
-    35 2635 68				pla
-    36 2636 A8			    tay
-    37 2637 68			    pla
-    38 2638 AA			    tax
-    39 2639 68			    pla
-    40 263A 40			    rti
+    35 2DC1 68				pla
+    36 2DC2 A8			    tay
+    37 2DC3 68			    pla
+    38 2DC4 AA			    tax
+    39 2DC5 68			    pla
+    40 2DC6 40			    rti
     41
     42 				.endp
     43
     44 				;##################################################
     45 				; wait until VBLANK occured
     46 				;##################################################
-    47 263B			.proc wait_for_default_vblank
-    48 263B			@
-    49 263B AD 73 26			lda default_vblank
-    50 263E C9 00			cmp #$00
-    51 2640 F0 F9			beq @-
+    47 2DC7			.proc wait_for_default_vblank
+    48 2DC7			@
+    49 2DC7 AD FF 2D			lda default_vblank
+    50 2DCA C9 00			cmp #$00
+    51 2DCC F0 F9			beq @-
     52
-    53 2642 A9 00			lda #$00
-    54 2644 8D 73 26			sta default_vblank
+    53 2DCE A9 00			lda #$00
+    54 2DD0 8D FF 2D			sta default_vblank
     55
-    56 2647 60				rts
+    56 2DD3 60				rts
     57 				.endp 
     58
     59
     60 				;##################################################
     61 				; use RAM under ROM by setting FE into PORTB
     62 				;##################################################
-    63 2648			.proc disable_os
-    64 2648 78			    sei
-    65 2649 D8			    cld
-    66 264A A9 00		    lda #$00  
-    67 264C 8D 0E D2		    sta IRQEN
-    68 264F A9 00		    lda #$00
-    69 2651 8D 0E D4		    sta NMIEN
-    70 2654 A9 FE			lda #$FE
-    71 2656 8D 01 D3			sta PORTB
+    63 2DD4			.proc disable_os
+    64 2DD4 78			    sei
+    65 2DD5 D8			    cld
+    66 2DD6 A9 00		    lda #$00  
+    67 2DD8 8D 0E D2		    sta IRQEN
+    68 2DDB A9 00		    lda #$00
+    69 2DDD 8D 0E D4		    sta NMIEN
+    70 2DE0 A9 FE			lda #$FE
+    71 2DE2 8D 01 D3			sta PORTB
     72 					
-    73 2659 A9 1B 8D FA FF A9 + 	mwa #nmi_handler NMI
-    74 2663 A9 30 8D 22 02 A9 + 	mwa #default_vbi_routine VVBLKI
+    73 2DE5 A9 A7 8D FA FF A9 + 	mwa #nmi_handler NMI
+    74 2DEF A9 BC 8D 22 02 A9 + 	mwa #default_vbi_routine VVBLKI
     75
-    76 266D A9 40			lda #$40
-    77 266F 8D 0E D4			sta NMIEN
+    76 2DF9 A9 40			lda #$40
+    77 2DFB 8D 0E D4			sta NMIEN
     78 					
-    79 2672 60				rts
+    79 2DFE 60				rts
     80 				.endp
     81 				;-----------------------
     82
@@ -915,4 +928,4 @@ Source: C:\CC65\Projects\VBXE\VBXE wrapper\os.asm
     84 				;-----------------------
     85 				; variables 
     86 				;-----------------------
-    87 2673 00			default_vblank  .byte   0
+    87 2DFF 00			default_vblank  .byte   0

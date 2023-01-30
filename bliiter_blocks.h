@@ -14,8 +14,7 @@ BCB_SPRITE_DRAW
     dta a(SPRITE_WIDTH)
     ; step X - step 1 byte each change of X
     dta $1
-address_sprite_on_screen
-    ; the address of the VBXE screen
+    ; the address of middle of the VBXE visible screen
     dta $80
     dta $50
     dta $00
@@ -36,7 +35,7 @@ address_sprite_on_screen
     dta $00
     ; Pattern fill 
     dta $00
-    dta BCB_COPY_WITH_TRANSPARENT
+    dta $01
 
 ;-----------------------------------------------
 ; blit data for clear screen
@@ -77,3 +76,4 @@ BCB_CLEAR_SCREEN
     dta $00
 
 BCB_SIZE equ 21
+

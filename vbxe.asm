@@ -24,7 +24,7 @@
     jsr vbxe.setup_vbxe_sprite_draw_bcb 
     jsr vbxe.start_blitter 
     
-    enable_xdl #1 ; disable
+    enable_xdl #VBXE_VIDEO_CONTROL_XDL_ENABLED ; disable
 
     
     rts 
@@ -447,11 +447,12 @@ copy_loop
 ;---------------------------------------------
 ; include files
     icl 'vbxe.h'
+    icl 'xdl_data.h'
     icl 'bliiter_blocks.h'
 sprite_data
-    ins 'sprite.bin'
+    ins 'sprite_monster.bin'
 palette_bin
-    ins 'palette.bin'
+    ins 'palette_monster.bin'
 ;---------------------------------------------
 
 .endp; vbxe 

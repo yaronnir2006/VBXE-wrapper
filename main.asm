@@ -17,7 +17,7 @@ main_loop
     jsr wait_for_default_vblank
 
     ; screen address is $BC40 (for default display list)
-    ldx #3
+    ldx #4
 loop_text
     lda text,x 
     sta $BCFF,x 
