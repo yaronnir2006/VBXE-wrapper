@@ -43,6 +43,7 @@ NMIEN           equ $D40E
 NMIRES          equ $D40F
 DMACTL          equ $D400
 DLISTL          equ $D402
+DLISTH          equ $D403 
 CHBASE          equ $D409
 WSYNC           equ $D40A
 VCOUNT          equ $D40B

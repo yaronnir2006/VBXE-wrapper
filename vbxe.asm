@@ -16,16 +16,16 @@
 
     jsr setup_vbxe_memac
     jsr setup_vbxe_xdl
+    jsr setup_vbxe_palette
     jsr setup_vbxe_clear_screen_bcb
     jsr start_blitter    
-    jsr setup_vbxe_palette
     jsr setup_vbxe_sprite_data
 
     jsr vbxe.setup_vbxe_sprite_draw_bcb 
     jsr vbxe.start_blitter 
     
     enable_xdl #VBXE_VIDEO_CONTROL_XDL_ENABLED ; disable
-
+*/
     
     rts 
 .endp ;initialize
