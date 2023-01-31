@@ -169,11 +169,15 @@ loop
     ; copy the palette bin file data into VBXE rgb registers
     ; the rgb bin file contains 256 values for 
     ; r,g and b respectively, we copy all of them 
-    ; start from palette 0 and color 0
+    ; start from palette 1 and color 0
+    ; palette 1 as we want to use ANTIC background under
+    ; the VBXE and if you choose palette 0 it impact the 
+    ; playfield colors of ANTIC
     
-    ; select palette 0
+    ; select palette 1
     ldy #VBXE_PSEL
-    lda #0 
+    lda #1
+
     sta (VBXE_BASE_ADDR),y 
 
     ; select color 0 

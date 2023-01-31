@@ -19,7 +19,7 @@ XDL_DATA
     dta $00 
     dta $40        ; step $140=320 pixels per line
     dta $01
-    dta XDLC_ATT_OV_WIDTH_NORMAL    ; NORMAL = 320 pixel
+    dta XDLC_ATT_OV_WIDTH_NORMAL | XDLC_ATT_OV_PALETTE_01   ; NORMAL = 320 pixel, and VBXE window takes colors from palette 1
     dta XDLC_ATT_MAIN_PRIORITY_OVERLAY_ALL
 
 XDL_DATA_LEN equ *-XDL_DATA

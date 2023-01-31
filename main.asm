@@ -14,12 +14,12 @@
 
     mva #>charset CHBASE
 
-    mva #$30  COLPF0
-    mva #$40  COLPF1
-    mva #$50  COLPF2 
-    mva #$60  COLPF3
-    mva #$44  COLBK
-
+    mva #$7A  COLPF0
+    mva #$00  COLPF1
+    mva #$66  COLPF2 
+    mva #$3C  COLPF3
+    mva #$00  COLBK
+    
 main_loop
     jsr wait_for_default_vblank
     jmp main_loop
